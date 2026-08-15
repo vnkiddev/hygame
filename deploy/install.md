@@ -67,6 +67,12 @@ script kiểm lại ngay sau đó rằng trục thời gian thật sự động.
 | 2.0s | 305 ms | ~410 ms |
 | 3.0s | 451 ms | ~560 ms |
 
+Đo qua cả đường HTTP thật (`/api/recognize`, model 110MB, 20 ứng viên,
+clip 1.5s): `compute_ms` 392ms — forward 382ms + chấm điểm 9ms; độ trễ HTTP
+p50 401ms, p95 411ms. RAM thường trú 312MB lúc khởi động, chững ở **380MB** và đứng yên suốt 300
+request với clip dài ngắn khác nhau — phần tăng lúc đầu là ONNX Runtime cấp
+phát buffer cho các cỡ đầu vào rồi thôi, không phải rò rỉ.
+
 Con i3 sẽ **chậm hơn** — có thể gấp 1.5-2.5 lần. Vẫn nằm trong ngân sách
 1 giây nếu VAD cắt gọn về 1-2 giây, nhưng phải tự đo, đừng tin bảng này.
 

@@ -104,6 +104,10 @@ data/                app.db + clip audio (KHÔNG commit)
 
 Chi tiết từng bước: [`deploy/install.md`](deploy/install.md).
 
+Số đo với model đúng kích thước thật (110MB int8, Xeon 2.8GHz, 2 luồng):
+clip 1.5s + 20 ứng viên → **392ms** (forward 382 + chấm điểm 9), RAM chững ở
+380MB. Trên con i3 sẽ chậm hơn 1.5-2.5 lần — phải tự đo, xem `install.md`.
+
 ---
 
 ## Dữ liệu học tập
