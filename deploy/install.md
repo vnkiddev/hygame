@@ -38,15 +38,37 @@ Máy chủ không cần PyTorch. Chỉ máy dev cần, và chỉ một lần.
 
 ```bash
 # trên máy dev (máy có sẵn python + đủ RAM)
-pip install torch transformers onnx onnxruntime
+# onnxscript là BẮT BUỘC với torch >= 2.6 — thiếu nó torch.onnx.export chết
+pip install torch transformers onnx onnxruntime onnxscript
 python3 scripts/export_onnx.py --bench
+
+# kiểm luôn đường xuất mà không cần tải model (dựng kiến trúc tại chỗ)
+python3 -m tests.test_export
 
 # copy sang máy chủ
 scp models/wav2vec2-vi-int8.onnx models/vocab.json \
     kidsapp@may-chu:/srv/kidsapp/models/
 ```
 
-Model mặc định: `nguyenvulebinh/wav2vec2-base-vietnamese-250h` (~95MB sau int8).
+Model mặc định: `nguyenvulebinh/wav2vec2-base-vietnamese-250h` — 94.5 triệu
+tham số, ra **một file ~110MB** sau int8 (script tự gộp trọng số vào trong
+file; bản xuất thô của torch để trọng số ở file `.onnx.data` riêng, copy
+thiếu là model hỏng).
+
+Trong lúc xuất, torch 2.13 có in `UserWarning` về `dynamic_axes` — không sao,
+script kiểm lại ngay sau đó rằng trục thời gian thật sự động.
+
+**Con số tham chiếu** (đo trên Xeon 2.8GHz, 2 luồng ONNX, kiến trúc thật):
+
+| Độ dài clip | forward pass | cả lượt (kèm chấm 20 ứng viên) |
+|---|---|---|
+| 1.0s | 157 ms | ~250 ms |
+| 1.5s | 228 ms | 332 ms |
+| 2.0s | 305 ms | ~410 ms |
+| 3.0s | 451 ms | ~560 ms |
+
+Con i3 sẽ **chậm hơn** — có thể gấp 1.5-2.5 lần. Vẫn nằm trong ngân sách
+1 giây nếu VAD cắt gọn về 1-2 giây, nhưng phải tự đo, đừng tin bảng này.
 
 **Kiểm tốc độ ngay trên con i3 trước khi đi tiếp** — SPEC §14.2:
 
@@ -183,12 +205,35 @@ Không có bước build. Thêm game hoặc video thưởng thì **không cần 
 
 ---
 
+## Đẩy lên máy chủ trong LAN (đường dùng hằng ngày)
+
+Chạy **trên máy Mac** (máy nằm cùng LAN với máy chủ):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vnkiddev/hygame/claude/spec-video-rewards-5j3xrb/scripts/deploy-lan.sh | bash
+```
+
+Cần `sshpass` (`brew install hudochenkov/sshpass/sshpass`). Script tự chọn
+cổng trống 6000-7000, clone/pull mã nguồn vào `~/apps/hygame`, dựng venv,
+gieo sẵn hồ sơ 3 bé nếu máy chủ chưa có bé nào, chạy app bằng PM2 (hoặc
+nohup), thêm ingress cloudflared, rồi in ra link LAN + mã quản trị.
+Chạy lại nhiều lần vô hại — lần sau chính là lệnh cập nhật.
+
+Đổi máy chủ hoặc subdomain thì đặt biến: `SERVER=... SUB=... bash ...`.
+
+**Micro sẽ KHÔNG chạy qua link LAN** vì đó là `http://`, mà micro đòi
+secure origin. Link LAN dùng để xem giao diện, sửa video thưởng, kiểm hồ
+sơ. Muốn thử giọng nói thì vào bằng `https://<sub>.vnkid.dev`, hoặc bật cờ
+`chrome://flags/#unsafely-treat-insecure-origin-as-secure` trên máy tính.
+
+---
+
 ## Mở ra tên miền công cộng (vd. `hygame.vnkid.dev`)
 
 Cách nhanh nhất — chạy **trên chính máy chủ**:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vnkiddev/hygame/main/scripts/deploy.sh \
+curl -fsSL https://raw.githubusercontent.com/vnkiddev/hygame/claude/spec-video-rewards-5j3xrb/scripts/deploy.sh \
   | sudo DOMAIN=hygame.vnkid.dev bash
 ```
 

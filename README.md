@@ -55,6 +55,7 @@ Model thật: chạy `scripts/export_onnx.py` trên máy có PyTorch, copy 2 fil
 ```bash
 python3 -m tests.test_scorer                       # lõi CTC, không cần model
 python3 -m tests.test_api http://127.0.0.1:8000    # toàn bộ API + tiêu chí §12
+python3 -m tests.test_export                       # đường xuất ONNX (cần torch)
 ```
 
 ---
@@ -91,6 +92,17 @@ data/                app.db + clip audio (KHÔNG commit)
 | Thêm câu tập đọc | Sửa `frontend/games/doc-cau/data/cau.txt` | Không |
 | Thêm trò chơi | Copy `games/_template/` + thêm 1 dòng vào `games/index.json` — xem [README của template](frontend/games/_template/README.md) | Không |
 | Đổi model ASR | Thay file trong `models/` | Có |
+
+## Triển khai
+
+| Đường | Lệnh | Chạy ở đâu |
+|---|---|---|
+| Máy chủ LAN trong nhà | `scripts/deploy-lan.sh` | máy Mac cùng LAN |
+| Tên miền công cộng | `scripts/deploy.sh` | chính máy chủ |
+| Gieo hồ sơ 3 bé mặc định | `scripts/seed_kids.py` | máy chủ |
+| Xuất model ONNX | `scripts/export_onnx.py` | máy dev (có PyTorch) |
+
+Chi tiết từng bước: [`deploy/install.md`](deploy/install.md).
 
 ---
 
