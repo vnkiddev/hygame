@@ -134,6 +134,13 @@ check("§4.2 thêm ứng viên gần như miễn phí (80 ứng viên)",
       st == 200 and d80["score_ms"] < 120,
       f"20 ứng viên {d['score_ms']}ms -> 80 ứng viên {d80['score_ms']}ms")
 
+# --- 4b. máy chủ chưa có model -----------------------------------------------
+# Không có model là trạng thái vận hành bình thường (client tự xoay bằng
+# trình duyệt), nên phải trả 200 kèm cờ — 503 làm console đỏ mỗi lượt bé đọc.
+if not h.get("asr_available"):
+    check("chưa có model -> trả 200 kèm cờ model_unavailable",
+          st == 200 and d.get("model_unavailable") is True, str(d)[:100])
+
 # --- 5. audio quá ngắn ------------------------------------------------------
 body, ct = multipart(
     {"candidates": json.dumps(NUMBERS, ensure_ascii=False), "expected": "bảy"},

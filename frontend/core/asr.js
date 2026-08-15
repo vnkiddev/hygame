@@ -128,10 +128,9 @@ async function askServer(wav, req, signal) {
   fd.append('session_id', req.sessionId || '');
   const res = await fetch('/api/recognize', { method: 'POST', body: fd, signal });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    // 503 = chưa có model. Máy chủ vẫn sống và vẫn lưu clip -> không coi là offline.
-    return { unavailable: true, ...data };
-  }
+  // Máy chủ chưa có model -> trả 200 kèm cờ model_unavailable, vẫn lưu clip.
+  // Máy chủ vẫn sống, nên KHÔNG coi là offline, chỉ là không có đường phụ.
+  if (!res.ok || data.model_unavailable) return { unavailable: true, ...data };
   return data;
 }
 

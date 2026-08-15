@@ -154,7 +154,13 @@ async def recognize(
             }
 
         if not engine.available:
+            # Trả 200 chứ không 503: request KHÔNG hỏng — audio vẫn nhận và
+            # vẫn lưu clip (dữ liệu giọng là thứ quý nhất, đừng vứt chỉ vì
+            # chưa có model). Chỉ là phần nhận diện chưa dùng được, client
+            # đọc cờ model_unavailable rồi tự xoay bằng trình duyệt.
+            # 503 làm trình duyệt in đỏ console mỗi lượt bé đọc.
             return {
+                "model_unavailable": True,
                 "error": "model_unavailable", "detail": engine.error,
                 "audio_ms": raw_ms, "kept_ms": kept_ms, "clip_id": clip_path,
                 "compute_ms": round((time.perf_counter() - t_start) * 1000, 1),
@@ -193,9 +199,7 @@ async def recognize(
         })
         return out
 
-    result = await asyncio.get_event_loop().run_in_executor(None, work)
-    status = 503 if result.get("error") == "model_unavailable" else 200
-    return JSONResponse(result, status_code=status)
+    return await asyncio.get_event_loop().run_in_executor(None, work)
 
 
 def _save_clip(x, kid_id: str, original: bytes) -> str | None:

@@ -108,16 +108,27 @@ $SSH "
     # Dừng tiến trình cũ theo PID đã ghi, KHÔNG dò theo mẫu dòng lệnh:
     # mẫu đó khớp luôn chính dòng lệnh ssh đang chạy nó, phiên ssh sẽ tự
     # giết mình và deploy treo giữa chừng.
+    # Giải phóng cổng theo TIẾN TRÌNH ĐANG NGHE, không chỉ theo file PID:
+    # file PID có thể cũ hoặc mất (ai đó chạy tay), khi ấy tiến trình cũ vẫn
+    # giữ cổng, uvicorn mới chết vì Address already in use, mà health check
+    # lại trúng server CŨ -> deploy báo thành công trong khi code cũ vẫn chạy.
+    HOLDERS=\$(ss -tlnpH 2>/dev/null | grep \":$PORT \" | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u)
     OLDPID=\$(cat app.pid 2>/dev/null || true)
-    if [ -n \"\$OLDPID\" ] && kill -0 \"\$OLDPID\" 2>/dev/null; then
-      kill \"\$OLDPID\" 2>/dev/null || true
-      sleep 2
-    fi
+    for pid in \$HOLDERS \$OLDPID; do
+      kill \"\$pid\" 2>/dev/null || true
+    done
+    [ -n \"\$HOLDERS\$OLDPID\" ] && sleep 2
     # </dev/null + chuyển hướng cả stdout/stderr: nếu không, ssh sẽ chờ mãi
     # vì tiến trình con vẫn giữ ống dữ liệu của phiên.
     nohup .venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port $PORT \
       < /dev/null > ~/apps/$APP/app.log 2>&1 &
     echo \$! > app.pid
+    sleep 3
+    if grep -q 'Address already in use' app.log 2>/dev/null; then
+      tail -5 app.log
+      echo 'CONG_BAN'
+      exit 1
+    fi
     echo '    -> chạy bằng nohup'
   fi"
 
