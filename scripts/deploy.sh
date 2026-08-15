@@ -11,7 +11,7 @@ set -euo pipefail
 APP_DIR=${APP_DIR:-/srv/kidsapp}
 APP_USER=${APP_USER:-kidsapp}
 REPO=${REPO:-https://github.com/vnkiddev/hygame.git}
-BRANCH=${BRANCH:-main}
+BRANCH=${BRANCH:-claude/spec-video-rewards-5j3xrb}   # đổi thành main sau khi merge
 DOMAIN=${DOMAIN:-hygame.vnkid.dev}
 ENV_FILE=/etc/kidsapp.env
 
@@ -82,12 +82,23 @@ echo "$OUT" | grep -q '"warm": *true' \
 	|| say "   ⚠️  warm=false — chưa có model ONNX trong $APP_DIR/models/ (app vẫn chạy, chỉ thiếu ASR máy chủ)"
 
 say "6/6 Caddy ($DOMAIN)"
+if ! command -v caddy >/dev/null; then
+	say "   Cài Caddy (cần HTTPS thì micro mới chạy được)"
+	apt-get install -y -qq debian-keyring debian-archive-keyring apt-transport-https curl gnupg >/dev/null
+	curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
+		| gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+	curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
+		> /etc/apt/sources.list.d/caddy-stable.list
+	apt-get update -qq && apt-get install -y -qq caddy >/dev/null
+fi
+
 if command -v caddy >/dev/null; then
 	install -m644 "$APP_DIR/deploy/Caddyfile.public" /etc/caddy/Caddyfile
 	sed -i "s/hygame\.vnkid\.dev/$DOMAIN/" /etc/caddy/Caddyfile
 	mkdir -p /var/log/caddy && chown caddy:caddy /var/log/caddy 2>/dev/null || true
 	systemctl reload caddy || systemctl restart caddy
 	say "Xong. Mở https://$DOMAIN"
+	say "Mã quản trị nằm ở $ENV_FILE (dùng cho trang /admin.html)"
 else
-	say "Chưa có Caddy. Cài theo deploy/install.md mục 6, rồi chạy lại script này."
+	say "Không cài được Caddy. Làm tay theo deploy/install.md mục 6 rồi chạy lại."
 fi
