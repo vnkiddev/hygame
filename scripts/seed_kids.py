@@ -37,7 +37,10 @@ SEED = [
 
 
 def main() -> int:
-    existing = [p.name for p in KIDS.glob("*/profile.json")]
+    # Bỏ qua _example/ và _default/ — phải đếm giống profiles.list_kid_ids(),
+    # nếu không _example sẽ bị tính là một bé và không bao giờ gieo được.
+    existing = [p.parent.name for p in KIDS.glob("*/profile.json")
+                if not p.parent.name.startswith("_")]
     if existing:
         print(f"Đã có {len(existing)} bé, không gieo thêm.")
         return 0
