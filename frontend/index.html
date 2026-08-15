@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Học cùng máy xúc</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚜</text></svg>">
+<link rel="stylesheet" href="core/style.css">
+</head>
+<body>
+
+<!-- 1. chọn bé -->
+<section id="pick" class="screen">
+  <h1>Học cùng máy xúc<small>Ai đang chơi nào?</small></h1>
+  <div class="tiles" id="kidTiles"></div>
+  <p class="hint" id="pickHint">Bấm tên để bắt đầu. Nhớ cho phép dùng micro nhé.</p>
+  <a class="ghost" href="admin.html" style="text-decoration:none">⚙️ Trang của bố mẹ</a>
+</section>
+
+<!-- 2. chọn trò chơi -->
+<section id="games" class="screen">
+  <div class="topbar">
+    <span class="who" id="gameWho"></span>
+    <span class="btns"><button class="ghost" id="backToKids">Đổi tên</button></span>
+  </div>
+  <h1>Chơi gì nào?</h1>
+  <div class="tiles" id="gameTiles"></div>
+</section>
+
+<!-- 3. màn chơi — game vẽ vào #gameRoot -->
+<section id="play" class="screen">
+  <div class="topbar">
+    <span class="who" id="playWho"></span>
+    <span class="stars" id="stars"></span>
+    <span class="btns">
+      <button class="ghost" id="backToGames">Đổi trò</button>
+      <button class="ghost" id="backToKidsPlay">Đổi tên</button>
+    </span>
+  </div>
+  <div id="gameRoot" style="width:100%;display:flex;flex-direction:column;align-items:center;
+       gap:clamp(8px,2vh,20px)"></div>
+  <div class="mic-wrap">
+    <button class="mic" id="mic"><span>🎤</span><span id="micLabel">Con đọc đi</span></button>
+    <p class="status" id="status"></p>
+  </div>
+</section>
+
+<!-- 4. màn thưởng (dùng chung cho mọi game) -->
+<section id="win">
+  <video id="vid" playsinline webkit-playsinline preload="auto"></video>
+  <div class="no-video" id="winFallback" style="display:none"></div>
+  <div class="praise" id="praise"></div>
+  <button class="again" id="again">Chơi tiếp</button>
+</section>
+
+<div class="offline" id="offline">📴 Máy chủ không kết nối được — đang chạy chế độ đơn giản</div>
+
+<script type="module" src="core/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+# Dữ liệu — KHÔNG commit (SPEC §3)
+kids/*
+!kids/_example/
+!kids/_default/
+kids/_default/rewards/*
+!kids/_default/rewards/.gitkeep
+models/*
+!models/.gitkeep
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Hệ điều hành / trình soạn thảo
+.DS_Store
+*.swp
+.idea/
+.vscode/

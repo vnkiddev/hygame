@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trang của bố mẹ</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚙️</text></svg>">
+<link rel="stylesheet" href="core/fonts.css">
+<style>
+  :root{--yellow:#F5B21E;--asphalt:#2B2A28;--rust:#E0632A;--grass:#7EBF4A;
+        --line:#E3DFD8;--bg:#F7F5F0;--card:#fff}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Fredoka','Baloo 2',system-ui,-apple-system,sans-serif;background:var(--bg);
+       color:var(--asphalt);line-height:1.5}
+  header{background:var(--asphalt);color:#fff;padding:16px clamp(14px,4vw,40px);
+         display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+         position:sticky;top:0;z-index:10}
+  header h1{font-size:22px;margin:0;font-weight:700}
+  header a{color:var(--yellow);font-weight:600;text-decoration:none;font-size:15px}
+  main{max-width:980px;margin:0 auto;padding:clamp(14px,3vw,28px)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;
+        padding:clamp(14px,2.5vw,24px);margin-bottom:20px}
+  .card h2{margin:0 0 4px;font-size:20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .card h2 .id{font-size:13px;font-weight:500;opacity:.45;font-family:ui-monospace,monospace}
+  .muted{opacity:.6;font-size:14px;margin:0 0 14px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+  label{display:block;font-size:13px;font-weight:600;opacity:.7;margin-bottom:4px}
+  input,select{font-family:inherit;font-size:16px;width:100%;padding:9px 12px;
+        border:1px solid var(--line);border-radius:10px;background:#fff;color:inherit}
+  input:focus{outline:2px solid var(--yellow);outline-offset:1px}
+  button{font-family:inherit;font-size:15px;font-weight:600;border:0;border-radius:999px;
+         padding:10px 20px;min-height:44px;cursor:pointer;background:var(--asphalt);color:#fff}
+  button.alt{background:#EDE9E2;color:var(--asphalt)}
+  button.danger{background:transparent;color:var(--rust);padding:6px 10px;min-height:36px;font-size:14px}
+  button:disabled{opacity:.4;cursor:default}
+  fieldset{border:1px solid var(--line);border-radius:12px;padding:14px;margin:16px 0 0}
+  legend{font-size:13px;font-weight:700;opacity:.6;padding:0 6px;text-transform:uppercase;
+         letter-spacing:.04em}
+  .videos{display:flex;flex-direction:column;gap:8px;margin:10px 0}
+  .vid{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#FAF8F4;
+       border:1px solid var(--line);border-radius:10px;font-size:15px;flex-wrap:wrap}
+  .vid .name{flex:1;min-width:140px;word-break:break-all}
+  .vid .size{font-size:13px;opacity:.5}
+  .vid.inherited{opacity:.65;border-style:dashed}
+  .drop{border:2px dashed var(--line);border-radius:12px;padding:20px;text-align:center;
+        font-size:15px;opacity:.75;cursor:pointer;background:#FAF8F4}
+  .drop.over{border-color:var(--grass);background:#F1F8EA;opacity:1}
+  .bar{height:6px;background:var(--line);border-radius:99px;overflow:hidden;margin-top:8px;display:none}
+  .bar div{height:100%;width:0;background:var(--grass);transition:width .2s}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}
+  .ok{color:var(--grass);font-weight:600;font-size:14px}
+  .err{color:var(--rust);font-weight:600;font-size:14px}
+  .games-cfg{display:flex;flex-direction:column;gap:10px}
+  .game-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:15px}
+  .game-row .gname{font-weight:600;min-width:110px}
+  .game-row input[type=number]{width:90px}
+  .chk{display:flex;align-items:center;gap:6px;font-size:15px;font-weight:600}
+  .chk input{width:20px;height:20px}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin-top:10px}
+  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+  th{font-size:12px;text-transform:uppercase;opacity:.5}
+  details summary{cursor:pointer;font-weight:600;font-size:15px;padding:6px 0}
+  #health{font-size:13px;opacity:.8}
+</style>
+</head>
+<body>
+<header>
+  <h1>⚙️ Trang của bố mẹ</h1>
+  <span id="health">…</span>
+  <a href="index.html">← Về màn chơi</a>
+</header>
+
+<main>
+  <div id="auth" class="card" style="display:none">
+    <h2>🔒 Cần mã quản trị</h2>
+    <p class="muted">Máy chủ đang đặt ADMIN_TOKEN. Nhập mã để xem và sửa.</p>
+    <div class="row">
+      <input id="token" type="password" placeholder="Mã quản trị" style="max-width:280px">
+      <button id="tokenBtn">Mở khoá</button>
+    </div>
+  </div>
+
+  <div id="kids"></div>
+
+  <div class="card">
+    <h2>➕ Thêm bé mới</h2>
+    <div class="grid">
+      <div><label>Mã bé (không dấu)</label><input id="newId" placeholder="vd: min"></div>
+      <div><label>Tên hiện trên màn hình</label><input id="newName" placeholder="Min"></div>
+      <div><label>Hình đại diện</label><input id="newAvatar" value="🚜"></div>
+      <div><label>Tuổi</label><input id="newAge" type="number" value="4" min="1" max="12"></div>
+    </div>
+    <div class="row"><button id="createBtn">Tạo hồ sơ</button><span id="createMsg"></span></div>
+  </div>
+</main>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+let token = sessionStorage.getItem('adminToken') || '';
+let data = null;
+
+function headers(extra = {}) {
+  return token ? { 'X-Admin-Token': token, ...extra } : extra;
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(`/api${path}`, { ...opts, headers: headers(opts.headers || {}) });
+  if (res.status === 401) { $('auth').style.display = ''; throw new Error('Cần mã quản trị'); }
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || `Lỗi ${res.status}`);
+  return res.json();
+}
+
+$('tokenBtn').onclick = () => {
+  token = $('token').value.trim();
+  sessionStorage.setItem('adminToken', token);
+  $('auth').style.display = 'none';
+  load();
+};
+
+async function health() {
+  try {
+    const h = await (await fetch('/api/health')).json();
+    $('health').textContent = h.warm
+      ? `✅ ASR sẵn sàng · ${h.model} · RAM ${h.rss_mb}MB`
+      : (h.asr_available ? '⏳ Đang làm nóng model…' : '⚠️ Chưa có model ASR — chỉ chạy bằng trình duyệt');
+    $('health').title = h.error || '';
+  } catch (e) { $('health').textContent = '❌ Máy chủ không trả lời'; }
+}
+
+async function load() {
+  try {
+    data = await api('/admin/kids');
+    $('auth').style.display = data.admin_locked && !token ? '' : 'none';
+    render();
+  } catch (e) { $('kids').innerHTML = `<div class="card"><p class="err">${e.message}</p></div>`; }
+}
+
+function render() {
+  const box = $('kids');
+  box.innerHTML = '';
+  if (!data.kids.length) {
+    box.innerHTML = '<div class="card"><p class="muted">Chưa có bé nào. Thêm ở dưới nhé.</p></div>';
+  }
+  data.kids.forEach((kid) => box.appendChild(kidCard(kid)));
+}
+
+function kidCard(kid) {
+  const c = document.createElement('div');
+  c.className = 'card';
+  const asr = kid.asr || {};
+  const rw = kid.rewards || {};
+  c.innerHTML = `
+    <h2>${kid.avatar || '🚜'} ${escapeHtml(kid.name)} <span class="id">${kid.id}</span></h2>
+    <p class="muted">Sửa xong bấm Lưu. Bé sẽ nhận thay đổi ở lần vào chơi sau, không cần khởi động lại máy chủ.</p>
+
+    <fieldset><legend>🎁 Video thưởng của bé</legend>
+      <p class="muted">Đủ ${rw.stars_needed || 3} sao là máy chiếu ngẫu nhiên một video ở đây,
+         không lặp lại video vừa chiếu. Thả file vào ô dưới hoặc bấm để chọn.</p>
+      <div class="videos" data-videos></div>
+      <div class="drop" data-drop>📼 Kéo video vào đây, hoặc bấm để chọn file (mp4, webm, mov)</div>
+      <input type="file" accept="video/*" multiple hidden data-file>
+      <div class="bar" data-bar><div></div></div>
+    </fieldset>
+
+    <fieldset><legend>👧 Thông tin</legend>
+      <div class="grid">
+        <div><label>Tên</label><input data-f="name" value="${escapeAttr(kid.name)}"></div>
+        <div><label>Hình đại diện</label><input data-f="avatar" value="${escapeAttr(kid.avatar || '')}"></div>
+        <div><label>Tuổi</label><input type="number" data-f="age" value="${kid.age || 4}" min="1" max="12"></div>
+        <div><label>Câu khen ({name} = tên bé)</label><input data-f="praise" value="${escapeAttr(kid.praise || '')}"></div>
+        <div><label>Tốc độ đọc mẫu (0.5 – 1.2)</label>
+             <input type="number" step="0.05" min="0.5" max="1.2" data-f="tts_rate" value="${kid.tts_rate ?? 0.8}"></div>
+        <div><label>Số sao để được thưởng</label>
+             <input type="number" min="1" max="10" data-f="stars_needed" value="${rw.stars_needed || 3}"></div>
+      </div>
+    </fieldset>
+
+    <fieldset><legend>🎤 Ngưỡng nhận diện</legend>
+      <p class="muted">Bé nói càng chưa rõ thì đặt càng thấp. Min 0.45/0.12 · Ly 0.25/0.05.
+         Đây là con số đoán ban đầu — chỉnh lại bằng dữ liệu thật sau vài tuần.</p>
+      <div class="grid">
+        <div><label>Ngưỡng chấp nhận (threshold)</label>
+             <input type="number" step="0.05" min="0" max="1" data-f="threshold" value="${asr.threshold ?? 0.45}"></div>
+        <div><label>Cách biệt tối thiểu (margin)</label>
+             <input type="number" step="0.01" min="0" max="1" data-f="margin" value="${asr.margin ?? 0.12}"></div>
+        <div><label>Sai mấy lần thì đọc mẫu</label>
+             <input type="number" min="1" max="5" data-f="max_wrong_before_hint" value="${asr.max_wrong_before_hint ?? 2}"></div>
+      </div>
+    </fieldset>
+
+    <fieldset><legend>🎮 Trò chơi</legend>
+      <div class="games-cfg" data-games></div>
+    </fieldset>
+
+    <details><summary>📊 Thống kê 14 ngày gần đây</summary><div data-stats>…</div></details>
+
+    <div class="row"><button data-save>Lưu thay đổi</button><span data-msg></span></div>`;
+
+  drawVideos(c, kid);
+  drawGames(c, kid);
+  wireUpload(c, kid);
+  wireStats(c, kid);
+  c.querySelector('[data-save]').onclick = () => saveKid(c, kid);
+  return c;
+}
+
+function drawGames(c, kid) {
+  const box = c.querySelector('[data-games]');
+  const known = {
+    'dem-so': [['max_number', 'Đếm tới số', 20], ['cells', 'Số ô mỗi lượt', 5]],
+    'doc-cau': [['min_words', 'Câu ngắn nhất (chữ)', 4], ['max_words', 'Câu dài nhất (chữ)', 6]],
+  };
+  const cfgs = kid.games || {};
+  const ids = Array.from(new Set([...Object.keys(known), ...Object.keys(cfgs)]));
+  box.innerHTML = '';
+  ids.forEach((gid) => {
+    const cfg = cfgs[gid] || {};
+    const row = document.createElement('div');
+    row.className = 'game-row';
+    row.dataset.game = gid;
+    let html = `<span class="gname">${gid}</span>
+      <label class="chk"><input type="checkbox" data-g="enabled" ${cfg.enabled !== false ? 'checked' : ''}> bật</label>`;
+    (known[gid] || []).forEach(([k, lbl, dft]) => {
+      html += `<label style="display:flex;gap:6px;align-items:center;margin:0;font-weight:500">
+        ${lbl} <input type="number" data-g="${k}" value="${cfg[k] ?? dft}"></label>`;
+    });
+    row.innerHTML = html;
+    box.appendChild(row);
+  });
+}
+
+function drawVideos(c, kid) {
+  const box = c.querySelector('[data-videos]');
+  const vids = kid.reward_videos || [];
+  box.innerHTML = '';
+  if (!vids.length) {
+    box.innerHTML = '<p class="muted" style="margin:0">Chưa có video nào — bé sẽ được khen bằng màn hình vui thay thế.</p>';
+    return;
+  }
+  vids.forEach((v) => {
+    const r = document.createElement('div');
+    r.className = 'vid' + (v.own ? '' : ' inherited');
+    r.innerHTML = `<span>🎬</span><span class="name">${escapeHtml(v.name)}</span>
+      <span class="size">${v.size_mb} MB</span>
+      ${v.own ? '' : '<span class="size">(dùng chung)</span>'}
+      <a href="${v.url}" target="_blank" style="font-size:14px">xem</a>`;
+    if (v.own) {
+      const del = document.createElement('button');
+      del.className = 'danger';
+      del.textContent = 'Xoá';
+      del.onclick = async () => {
+        if (!confirm(`Xoá video "${v.name}" của ${kid.name}?`)) return;
+        await api(`/admin/kids/${kid.id}/rewards/${encodeURIComponent(v.name)}`, { method: 'DELETE' });
+        await refreshVideos(c, kid);
+      };
+      r.appendChild(del);
+    }
+    box.appendChild(r);
+  });
+}
+
+async function refreshVideos(c, kid) {
+  const d = await api(`/admin/kids/${kid.id}/rewards`);
+  kid.reward_videos = d.videos;
+  drawVideos(c, kid);
+}
+
+function wireUpload(c, kid) {
+  const drop = c.querySelector('[data-drop]');
+  const file = c.querySelector('[data-file]');
+  const bar = c.querySelector('[data-bar]');
+  drop.onclick = () => file.click();
+  file.onchange = () => send([...file.files]);
+  ['dragenter', 'dragover'].forEach((ev) => drop.addEventListener(ev, (e) => {
+    e.preventDefault(); drop.classList.add('over');
+  }));
+  ['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => {
+    e.preventDefault(); drop.classList.remove('over');
+  }));
+  drop.addEventListener('drop', (e) => send([...(e.dataTransfer.files || [])]));
+
+  async function send(files) {
+    files = files.filter((f) => f.size > 0);
+    if (!files.length) return;
+    bar.style.display = 'block';
+    for (let i = 0; i < files.length; i++) {
+      drop.textContent = `Đang tải ${files[i].name} (${i + 1}/${files.length})…`;
+      try {
+        await upload(kid.id, files[i], (pct) => {
+          bar.firstElementChild.style.width = `${((i + pct) / files.length) * 100}%`;
+        });
+      } catch (err) {
+        drop.textContent = `❌ ${err.message}`;
+        bar.style.display = 'none';
+        return;
+      }
+    }
+    bar.style.display = 'none';
+    bar.firstElementChild.style.width = '0';
+    drop.textContent = '📼 Kéo video vào đây, hoặc bấm để chọn file (mp4, webm, mov)';
+    file.value = '';
+    await refreshVideos(c, kid);
+  }
+}
+
+// XHR chứ không fetch: video có thể vài trăm MB, cần thanh tiến trình.
+function upload(kidId, file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const fd = new FormData();
+    fd.append('file', file, file.name);
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `/api/admin/kids/${kidId}/rewards`);
+    if (token) xhr.setRequestHeader('X-Admin-Token', token);
+    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
+    xhr.onload = () => {
+      if (xhr.status < 300) resolve(JSON.parse(xhr.responseText || '{}'));
+      else {
+        let m = `Lỗi ${xhr.status}`;
+        try { m = JSON.parse(xhr.responseText).detail || m; } catch (e) { /* body không phải JSON */ }
+        reject(new Error(m));
+      }
+    };
+    xhr.onerror = () => reject(new Error('Mất kết nối khi tải lên'));
+    xhr.send(fd);
+  });
+}
+
+async function wireStats(c, kid) {
+  const det = c.querySelector('details');
+  det.ontoggle = async () => {
+    if (!det.open || det.dataset.loaded) return;
+    det.dataset.loaded = '1';
+    const box = c.querySelector('[data-stats]');
+    try {
+      const d = await api(`/admin/stats/${kid.id}?days=14`);
+      if (!d.words.length) { box.innerHTML = '<p class="muted">Chưa có dữ liệu.</p>'; return; }
+      box.innerHTML = `<table><tr><th>Từ</th><th>Số lượt</th><th>Đúng</th><th>Tỉ lệ</th>
+        <th>Điểm TB</th></tr>${d.words.map((w) => `<tr><td>${escapeHtml(w.expected)}</td>
+        <td>${w.n}</td><td>${w.ok || 0}</td><td>${Math.round(((w.ok || 0) / w.n) * 100)}%</td>
+        <td>${(w.avg_prob || 0).toFixed(2)}</td></tr>`).join('')}</table>`;
+    } catch (e) { box.innerHTML = `<p class="err">${e.message}</p>`; }
+  };
+}
+
+async function saveKid(c, kid) {
+  const msg = c.querySelector('[data-msg]');
+  const get = (f) => c.querySelector(`[data-f="${f}"]`).value;
+  const num = (f) => parseFloat(get(f));
+  const games = {};
+  c.querySelectorAll('[data-game]').forEach((row) => {
+    const cfg = { ...(kid.games || {})[row.dataset.game] };
+    row.querySelectorAll('[data-g]').forEach((inp) => {
+      cfg[inp.dataset.g] = inp.type === 'checkbox' ? inp.checked : parseInt(inp.value, 10);
+    });
+    games[row.dataset.game] = cfg;
+  });
+  const body = {
+    name: get('name').trim(),
+    avatar: get('avatar').trim(),
+    age: parseInt(get('age'), 10),
+    praise: get('praise'),
+    tts_rate: num('tts_rate'),
+    asr: {
+      threshold: num('threshold'),
+      margin: num('margin'),
+      max_wrong_before_hint: parseInt(get('max_wrong_before_hint'), 10),
+    },
+    games,
+    rewards: { ...(kid.rewards || {}), stars_needed: parseInt(get('stars_needed'), 10) },
+  };
+  msg.className = 'muted';
+  msg.textContent = 'Đang lưu…';
+  try {
+    const saved = await api(`/admin/kids/${kid.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    Object.assign(kid, saved);
+    msg.className = 'ok';
+    msg.textContent = '✅ Đã lưu';
+    setTimeout(() => { msg.textContent = ''; }, 2500);
+  } catch (e) {
+    msg.className = 'err';
+    msg.textContent = e.message;
+  }
+}
+
+$('createBtn').onclick = async () => {
+  const msg = $('createMsg');
+  msg.className = 'muted';
+  msg.textContent = 'Đang tạo…';
+  try {
+    await api('/admin/kids', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: $('newId').value.trim().toLowerCase(),
+        name: $('newName').value.trim(),
+        avatar: $('newAvatar').value.trim() || '🚜',
+        age: parseInt($('newAge').value, 10) || 4,
+      }),
+    });
+    msg.className = 'ok';
+    msg.textContent = '✅ Xong';
+    $('newId').value = $('newName').value = '';
+    await load();
+  } catch (e) {
+    msg.className = 'err';
+    msg.textContent = e.message;
+  }
+};
+
+const escapeHtml = (s) => String(s ?? '').replace(/[&<>]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
+const escapeAttr = (s) => escapeHtml(s).replace(/"/g, '&quot;');
+
+health();
+load();
+setInterval(health, 20000);
+</script>
+</body>
+</html>

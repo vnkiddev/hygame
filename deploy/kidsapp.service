@@ -1,0 +1,38 @@
+# systemd unit — chép vào /etc/systemd/system/kidsapp.service
+[Unit]
+Description=Tro choi hoc bang giong noi cho tre
+After=network.target
+
+[Service]
+Type=simple
+User=kidsapp
+Group=kidsapp
+WorkingDirectory=/srv/kidsapp
+Environment="PATH=/srv/kidsapp/.venv/bin:/usr/bin:/bin"
+# Máy i3 2 nhân: để ASR 2 luồng, uvicorn 1 worker là đủ cho 3 người dùng.
+Environment="ASR_THREADS=2"
+Environment="OMP_NUM_THREADS=2"
+Environment="KIDS_DIR=/srv/kidsapp/kids"
+Environment="MODELS_DIR=/srv/kidsapp/models"
+Environment="DATA_DIR=/srv/kidsapp/data"
+# Đặt mã nếu muốn khoá trang quản trị (để trống = mở, hợp với mạng LAN nhà)
+# Environment="ADMIN_TOKEN=doi-ma-nay"
+ExecStart=/srv/kidsapp/.venv/bin/uvicorn backend.main:app --host 127.0.0.1 --port 8000 --workers 1
+Restart=always
+RestartSec=3
+# Tải model mất một lúc, đừng để systemd tưởng treo
+TimeoutStartSec=120
+
+# Siết quyền: dịch vụ này chỉ cần đọc code và ghi vào data/ + kids/
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/srv/kidsapp/data /srv/kidsapp/kids
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+MemoryMax=2G
+
+[Install]
+WantedBy=multi-user.target

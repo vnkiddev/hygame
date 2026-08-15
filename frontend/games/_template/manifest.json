@@ -1,0 +1,9 @@
+{
+  "id": "_template",
+  "title": "Con gì đây?",
+  "icon": "🐱",
+  "description": "Bộ khung mẫu để làm game mới",
+  "min_age": 2,
+  "needs": ["mic"],
+  "asr_mode": "closed_set"
+}

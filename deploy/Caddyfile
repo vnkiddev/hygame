@@ -1,0 +1,56 @@
+# Caddy — TLS + phục vụ frontend tĩnh + proxy /api sang uvicorn.
+# Chép vào /etc/caddy/Caddyfile rồi: sudo systemctl reload caddy
+#
+# Micro BẮT BUỘC secure origin. Trong LAN không xin được cert công cộng,
+# nên dùng CA nội bộ của Caddy: máy chủ tự cấp cert cho tên miền .home.
+# Cài cert gốc của Caddy vào iPad một lần
+# (Cài đặt > Cấu hình > cài, rồi Cài đặt > Cài đặt chung > Giới thiệu >
+#  Tin cậy chứng chỉ > bật) là Safari hết cảnh báo.
+
+{
+	# Không xin cert công cộng cho tên miền nội bộ
+	local_certs
+}
+
+hocmayxuc.home {
+	encode gzip
+
+	# API -> uvicorn
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	# Video thưởng -> uvicorn (có hỗ trợ Range để tua video)
+	handle /media/* {
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	# Còn lại là file tĩnh
+	handle {
+		root * /srv/kidsapp/frontend
+		try_files {path} {path}/ /index.html
+		file_server
+
+		# Game và hồ sơ đổi luôn -> không cache; font/ảnh thì cache lâu
+		@nocache path *.json *.js *.css *.html *.txt
+		header @nocache Cache-Control "no-cache"
+		@static path /core/fonts/*
+		header @static Cache-Control "public, max-age=31536000, immutable"
+	}
+}
+
+# Vào bằng IP cũng được (Safari sẽ báo cert không hợp lệ, bấm bỏ qua)
+https://192.168.1.50 {
+	tls internal
+	encode gzip
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8000
+	}
+	handle /media/* {
+		reverse_proxy 127.0.0.1:8000
+	}
+	handle {
+		root * /srv/kidsapp/frontend
+		file_server
+	}
+}

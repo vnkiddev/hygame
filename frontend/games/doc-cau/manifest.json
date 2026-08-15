@@ -1,0 +1,12 @@
+{
+  "id": "doc-cau",
+  "title": "Tập đọc",
+  "icon": "📖",
+  "description": "Đọc câu ngắn, đúng chữ nào sáng chữ đó",
+  "min_age": 3,
+  "needs": [
+    "mic"
+  ],
+  "asr_mode": "closed_set",
+  "style": true
+}

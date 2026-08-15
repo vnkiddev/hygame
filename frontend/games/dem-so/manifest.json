@@ -1,0 +1,12 @@
+{
+  "id": "dem-so",
+  "title": "Đếm số",
+  "icon": "🚜",
+  "description": "Đếm tiếp từ một số bất kỳ",
+  "min_age": 2,
+  "needs": [
+    "mic"
+  ],
+  "asr_mode": "closed_set",
+  "style": true
+}

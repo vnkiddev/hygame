@@ -1,0 +1,10 @@
+# Môi trường chạy production (máy i3, không GPU, KHÔNG cài PyTorch)
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9
+numpy>=1.26,<3
+onnxruntime>=1.17
+
+# Đường phụ transcript tự do (tuỳ chọn, chỉ khi WHISPER_ENABLED=1):
+# optimum[onnxruntime]>=1.19
+# transformers>=4.40
