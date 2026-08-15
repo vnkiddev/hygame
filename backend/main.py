@@ -398,3 +398,19 @@ def index() -> RedirectResponse:
 
 if config.FRONTEND_DIR.exists():
     app.mount("/app", StaticFiles(directory=config.FRONTEND_DIR, html=True), name="app")
+
+
+@app.on_event("startup")
+async def warn_if_unguarded() -> None:
+    """Cảnh báo to nếu mở ra internet mà không đặt mã quản trị.
+
+    Trong LAN nhà thì không cần auth (SPEC §5). Nhưng khi đứng sau tên miền
+    công cộng, mọi request đều tới từ 127.0.0.1 của tunnel — dải IP trong
+    ALLOWED_NETS không còn chặn được ai nữa.
+    """
+    if not config.ADMIN_TOKEN:
+        log.warning(
+            "⚠️  ADMIN_TOKEN đang để trống: ai vào được trang cũng tải lên/xoá "
+            "được video và xem được dữ liệu của trẻ. Chấp nhận được trong LAN, "
+            "KHÔNG chấp nhận được nếu mở ra internet."
+        )

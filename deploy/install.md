@@ -180,3 +180,44 @@ Không có bước build. Thêm game hoặc video thưởng thì **không cần 
 | `ADMIN_TOKEN` | rỗng | Đặt để khoá trang quản trị |
 | `WHISPER_ENABLED` | `0` | Bật đường phụ transcript tự do |
 | `MAX_AUDIO_SEC` | `6` | Cắt cứng audio dài hơn mức này |
+
+---
+
+## Mở ra tên miền công cộng (vd. `hygame.vnkid.dev`)
+
+Cách nhanh nhất — chạy **trên chính máy chủ**:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vnkiddev/hygame/main/scripts/deploy.sh \
+  | sudo DOMAIN=hygame.vnkid.dev bash
+```
+
+Script tự làm hết: cài gói, clone/pull mã nguồn, tạo venv, sinh
+`ADMIN_TOKEN` ngẫu nhiên ghi vào `/etc/kidsapp.env`, cài systemd, đợi
+health check, rồi cài `deploy/Caddyfile.public`. Chạy lại nhiều lần vô hại
+— lần sau chính là lệnh cập nhật.
+
+Model ONNX vẫn phải tự copy sang `models/` (mục 3), script không tải hộ
+được vì việc xuất model cần PyTorch.
+
+### Khác biệt so với chạy trong LAN — đọc kỹ
+
+**1. Bảo mật.** Trong LAN, SPEC §5 cho phép không cần auth. Ra internet thì
+khác hẳn: trang quản trị cho tải lên/xoá video và xem dữ liệu học của trẻ,
+còn `data/clips/` là giọng thật của bọn trẻ. `ADMIN_TOKEN` là cánh cửa duy
+nhất — script tự sinh sẵn, đừng để trống.
+
+Lọc theo dải IP (`ALLOWED_NETS`) **hết tác dụng** khi đứng sau proxy, vì
+mọi request đều tới từ `127.0.0.1`. Đó là lý do script đặt `ALLOWED_NETS=*`
+và dựa vào token.
+
+Muốn chắc hơn nữa thì đặt thêm một lớp trước bằng Cloudflare Access, hoặc
+`basic_auth` của Caddy cho riêng `/admin.html` và `/api/admin/*`.
+
+**2. Giới hạn tải lên qua Cloudflare.** Gói miễn phí chặn body > 100MB, nên
+video thưởng dài sẽ hỏng giữa chừng. Cách xử lý: nén video xuống dưới 100MB,
+hoặc copy thẳng vào `kids/<id>/rewards/` bằng scp, hoặc dùng
+Cloudflare Tunnel (`cloudflared`) — tunnel không dính giới hạn này.
+
+**3. Micro.** Tên miền công cộng có cert Let's Encrypt thật, nên iPad
+**không** phải cài chứng chỉ gốc nữa. Bỏ qua được bước 6 phần cert.
