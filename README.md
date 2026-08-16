@@ -5,7 +5,8 @@ Bé đọc to tiếng Việt, máy nghe và mở khoá phần thưởng.
 
 - **`dem-so`** — đếm số 1..20, mở lần lượt các ô bê tông
 - **`doc-cau`** — đọc câu ngắn, đọc đúng chữ nào thì chữ đó sáng lên.
-  Chạy được **tiếng Việt hoặc tiếng Anh**, đặt riêng cho từng bé
+  Chạy được **tiếng Việt hoặc tiếng Anh** — bé nào cũng đổi qua lại được
+  ngay trong lúc chơi, hồ sơ chỉ quyết định tiếng mở màn
 
 Chi tiết yêu cầu: [`SPEC.md`](SPEC.md). Cài đặt: [`deploy/install.md`](deploy/install.md).
 
@@ -103,7 +104,8 @@ data/                app.db + clip audio (KHÔNG commit)
 |---|---|---|
 | Thêm video thưởng cho bé | Kéo thả ở `admin.html`, hoặc copy vào `kids/<id>/rewards/` | Không |
 | Chỉnh máy chấm dễ/khó | Thanh trượt 5 mức ở `admin.html` | Không |
-| Đổi ngôn ngữ trò tập đọc | `admin.html` → 🇻🇳/🇬🇧 cho từng bé | Không |
+| Đổi ngôn ngữ đang chơi | Nút 🇻🇳/🇬🇧 ngay trong trò tập đọc | Không |
+| Đổi tiếng mở màn của một bé | `admin.html` → Ngôn ngữ mở màn | Không |
 | Đổi độ dài câu tập đọc | `admin.html` → câu ngắn nhất / dài nhất | Không |
 | Đổi câu khen, tốc độ đọc mẫu | `admin.html`, hoặc sửa `kids/<id>/profile.json` | Không |
 | Thêm bé | `admin.html` → "Thêm bé mới" | Không |
@@ -115,6 +117,7 @@ data/                app.db + clip audio (KHÔNG commit)
 
 | Đường | Lệnh | Chạy ở đâu |
 |---|---|---|
+| **Tự cập nhật (push là deploy)** | `deploy/install-autodeploy.sh` — cài một lần | máy chủ |
 | Máy chủ LAN trong nhà | `scripts/deploy-lan.sh` | máy Mac cùng LAN |
 | Tên miền công cộng | `scripts/deploy.sh` | chính máy chủ |
 | Gieo hồ sơ 3 bé mặc định | `scripts/seed_kids.py` | máy chủ |

@@ -229,6 +229,25 @@ Chạy lại nhiều lần vô hại — lần sau chính là lệnh cập nhậ
 
 Đổi máy chủ hoặc subdomain thì đặt biến: `SERVER=... SUB=... bash ...`.
 
+### Rồi bật tự cập nhật, để khỏi phải deploy tay nữa
+
+Chạy **một lần** trên máy chủ:
+
+```bash
+bash ~/apps/hygame/deploy/install-autodeploy.sh
+```
+
+Từ đó cứ có commit mới trên nhánh là tối đa 2 phút sau máy chủ tự kéo về,
+cài lại phụ thuộc nếu `requirements.txt` đổi, restart rồi tự kiểm tra sức
+khoẻ. Không có gì mới thì không restart thừa.
+
+```bash
+systemctl --user list-timers hygame-autodeploy.timer   # lịch chạy
+journalctl --user -u hygame-autodeploy -n 30           # nhật ký
+systemctl --user start hygame-autodeploy.service       # cập nhật ngay
+systemctl --user disable --now hygame-autodeploy.timer # tắt
+```
+
 **Micro sẽ KHÔNG chạy qua link LAN** vì đó là `http://`, mà micro đòi
 secure origin. Link LAN dùng để xem giao diện, sửa video thưởng, kiểm hồ
 sơ. Muốn thử giọng nói thì vào bằng `https://<sub>.vnkid.dev`, hoặc bật cờ
