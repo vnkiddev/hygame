@@ -31,6 +31,8 @@ const TEXT = {
     heardAs: (b) => ` (nghe thành “${b}”)`,
     sample: '🔊 Nghe mẫu',
     help: '👉 Mở giúp',
+    switchTo: '🇬🇧 English',
+    switched: 'Chuyển sang tiếng Anh',
   },
   en: {
     file: 'data/cau-en.txt',
@@ -44,6 +46,8 @@ const TEXT = {
     heardAs: (b) => ` (I heard “${b}”)`,
     sample: '🔊 Listen',
     help: '👉 Open it',
+    switchTo: '🇻🇳 Tiếng Việt',
+    switched: 'Switched to Vietnamese',
   },
 };
 
@@ -64,10 +68,10 @@ export default {
   id: 'doc-cau',
 
   async setup(ctx) {
-    // Ngôn ngữ đặt trong hồ sơ từng bé (trang quản trị). Ly học tiếng Việt,
-    // Min học tiếng Anh — nên cùng một trò chơi phải chạy được cả hai.
-    const lang = ctx.settings.lang === 'en' ? 'en' : 'vi';
-    const T = TEXT[lang];
+    // Ngôn ngữ KHÔNG khoá cứng theo bé: hồ sơ chỉ quyết định mở màn bằng
+    // tiếng nào, còn bé nào cũng đổi qua lại được ngay trong lúc chơi.
+    let lang = ctx.settings.lang === 'en' ? 'en' : 'vi';
+    let T = TEXT[lang];
     const minW = ctx.settings.min_words || 3;
     const maxW = ctx.settings.max_words || 6;
     let alive = true;
@@ -77,28 +81,41 @@ export default {
     let idx = 0;
     let wrong = 0;
     let listening = false;
+    let switching = false;
 
     ctx.onExit(() => { alive = false; });
 
-    // --- danh sách câu ---
+    // --- danh sách câu, nạp theo ngôn ngữ và nhớ lại để đổi qua lại cho nhanh ---
+    const cache = {};
     let list = [];
-    try {
-      const r = await fetch(ctx.assetUrl(T.file), { cache: 'no-store' });
-      if (!r.ok) throw new Error(r.status);
-      list = parseList(await r.text());
-    } catch (e) {
-      list = parseList(FALLBACK[lang].join('\n'));
+
+    async function loadList(which) {
+      if (cache[which]) return cache[which];
+      let raw = [];
+      try {
+        const r = await fetch(ctx.assetUrl(TEXT[which].file), { cache: 'no-store' });
+        if (!r.ok) throw new Error(r.status);
+        raw = parseList(await r.text());
+      } catch (e) {
+        raw = parseList(FALLBACK[which].join('\n'));
+      }
+      const fits = (c) => {
+        const n = c.s.split(/\s+/).length;
+        return n >= minW && n <= maxW;
+      };
+      const filtered = raw.filter(fits);
+      // Bố mẹ đặt khoảng độ dài quá hẹp thì đừng bỏ trắng trò chơi — dùng cả
+      // danh sách còn hơn là không có câu nào.
+      let out = filtered.length ? filtered : raw;
+      if (!out.length) out = parseList(FALLBACK[which].join('\n'));
+      cache[which] = out;
+      ctx.log('sentence_pool', {
+        lang: which, total: out.length, min_words: minW, max_words: maxW,
+      });
+      return out;
     }
-    const fits = (c) => {
-      const n = c.s.split(/\s+/).length;
-      return n >= minW && n <= maxW;
-    };
-    const filtered = list.filter(fits);
-    // Bố mẹ đặt khoảng độ dài quá hẹp thì đừng bỏ trắng trò chơi — dùng cả
-    // danh sách còn hơn là không có câu nào.
-    list = filtered.length ? filtered : list;
-    if (!list.length) list = parseList(FALLBACK[lang].join('\n'));
-    ctx.log('sentence_pool', { lang, total: list.length, min_words: minW, max_words: maxW });
+
+    list = await loadList(lang);
 
     // --- dựng DOM ---
     const stage = document.createElement('div');
@@ -120,10 +137,28 @@ export default {
       b.textContent = label;
       b.onclick = fn;
       bar.appendChild(b);
+      return b;
     };
-    btn(T.sample, () => hint(true));
-    btn(T.help, () => { if (alive && idx < words.length) advanceTo(idx + 1); });
+    const sampleBtn = btn(T.sample, () => hint(true));
+    const helpBtn = btn(T.help, () => { if (alive && idx < words.length) advanceTo(idx + 1); });
+    const langBtn = btn(T.switchTo, () => switchLang());
     ctx.root.appendChild(bar);
+
+    async function switchLang() {
+      if (!alive || switching) return;
+      switching = true;
+      lang = lang === 'vi' ? 'en' : 'vi';
+      T = TEXT[lang];
+      sampleBtn.textContent = T.sample;
+      helpBtn.textContent = T.help;
+      langBtn.textContent = T.switchTo;
+      ctx.status(T.switched);
+      ctx.log('lang_switch', { to: lang });
+      list = await loadList(lang);
+      pool = [];
+      switching = false;
+      nextSentence();
+    }
 
     function paint() {
       for (let i = 0; i < wordsEl.children.length; i++) {
@@ -199,16 +234,18 @@ export default {
     }
 
     async function loop() {
-      if (!alive || listening || idx >= words.length) return;
+      if (!alive || listening || switching || idx >= words.length) return;
       listening = true;
       const want = words[idx];
       // Ứng viên: các chữ CÒN LẠI của câu. `sequence` cho phép bé đọc liền
       // nhiều chữ thì mở luôn nhiều chữ (ăn dần từ trái sang như prototype).
       const remaining = words.slice(idx);
       const candidates = Array.from(new Set(remaining));
+      const langAtStart = lang;
       const r = await ctx.listen({ candidates, expected: want, sequence: remaining, lang });
       listening = false;
-      if (!alive) return;
+      // Bé bấm đổi ngôn ngữ trong lúc đang nghe -> kết quả này đã lạc hậu
+      if (!alive || lang !== langAtStart) return;
 
       if (r.ok) { advanceTo(idx + Math.max(1, r.advance)); return; }
 

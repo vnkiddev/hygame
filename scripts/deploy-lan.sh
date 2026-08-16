@@ -84,6 +84,8 @@ $SSH "
     echo 'ASR_THREADS=2' >> .env
     chmod 600 .env
   fi
+  # Ghi lại cổng để dịch vụ tự cập nhật khởi động lại đúng cổng này
+  echo $PORT > .port
   # kids/ không nằm trong git -> máy chủ mới clone sẽ trống, gieo sẵn 3 bé
   .venv/bin/python scripts/seed_kids.py"
 TOKEN=$($SSH "grep ADMIN_TOKEN ~/apps/$APP/.env | cut -d= -f2")

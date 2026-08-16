@@ -202,6 +202,8 @@ function kidCard(kid) {
     </fieldset>
 
     <fieldset><legend>🎮 Trò chơi</legend>
+      <p class="muted">"Ngôn ngữ mở màn" chỉ là tiếng dùng khi vừa vào trò tập đọc —
+         bé nào cũng có sẵn nút đổi qua lại Việt/Anh ngay trong lúc chơi.</p>
       <div class="games-cfg" data-games></div>
     </fieldset>
 
@@ -271,7 +273,8 @@ function drawGames(c, kid) {
       ['cells', 'Số ô mỗi lượt', 5, 'number'],
     ],
     'doc-cau': [
-      ['lang', 'Ngôn ngữ', 'vi', 'select', [['vi', '🇻🇳 Tiếng Việt'], ['en', '🇬🇧 Tiếng Anh']]],
+      ['lang', 'Ngôn ngữ mở màn', 'vi', 'select',
+        [['vi', '🇻🇳 Tiếng Việt'], ['en', '🇬🇧 Tiếng Anh']]],
       ['min_words', 'Câu ngắn nhất (chữ)', 4, 'number'],
       ['max_words', 'Câu dài nhất (chữ)', 6, 'number'],
     ],
