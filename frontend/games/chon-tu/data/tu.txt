@@ -1,0 +1,68 @@
+# Từ cho trò "Chọn từ" — mỗi dòng: từ|emoji
+# Chỉ dùng từ NGẮN (1-2 tiếng) mà bé nghe là hiểu ngay. Emoji dùng để khen
+# lúc chọn đúng, và để gợi ý khi máy không đọc được tiếng Việt.
+# Sửa file này là xong, không phải khởi động lại máy chủ.
+
+# --- con vật ---
+mèo|🐱
+chó|🐶
+gà|🐓
+cá|🐟
+voi|🐘
+thỏ|🐰
+bò|🐄
+lợn|🐷
+vịt|🦆
+chim|🐦
+ong|🐝
+rùa|🐢
+khỉ|🐵
+gấu|🐻
+
+# --- ăn uống ---
+táo|🍎
+chuối|🍌
+cam|🍊
+nho|🍇
+dưa|🍉
+xoài|🥭
+bánh|🍰
+kẹo|🍬
+sữa|🥛
+cơm|🍚
+trứng|🥚
+kem|🍦
+
+# --- đồ vật ---
+xe|🚗
+tàu|🚂
+thuyền|⛵
+máy xúc|🚜
+bóng|⚽
+sách|📚
+bút|✏️
+mũ|🧢
+giày|👟
+áo|👕
+ghế|🪑
+nhà|🏠
+
+# --- xung quanh ---
+mưa|🌧️
+nắng|🌞
+mây|☁️
+sao|⭐
+trăng|🌙
+hoa|🌸
+cây|🌳
+lá|🍃
+núi|⛰️
+biển|🌊
+
+# --- người và cơ thể ---
+tay|✋
+mắt|👀
+mũi|👃
+tai|👂
+chân|🦶
+răng|🦷

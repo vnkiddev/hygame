@@ -278,6 +278,9 @@ function drawGames(c, kid) {
       ['min_words', 'Câu ngắn nhất (chữ)', 4, 'number'],
       ['max_words', 'Câu dài nhất (chữ)', 6, 'number'],
     ],
+    'chon-tu': [
+      ['so_lua_chon', 'Số từ mỗi lượt (2-3)', 2, 'number'],
+    ],
   };
   const cfgs = kid.games || {};
   const ids = Array.from(new Set([...Object.keys(known), ...Object.keys(cfgs)]));

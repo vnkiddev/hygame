@@ -82,6 +82,7 @@ repo/
 │  │  ├─ speak.js          # TTS
 │  │  ├─ reward.js         # sao + video thưởng
 │  │  ├─ ui.js             # tiện ích DOM dùng chung, hiệu ứng
+│  │  ├─ keys.js           # bàn phím + điều khiển tivi (D-pad)
 │  │  ├─ session.js        # trạng thái phiên chơi, gửi log
 │  │  └─ style.css         # design tokens dùng chung
 │  └─ games/
@@ -93,6 +94,10 @@ repo/
 │     │  ├─ manifest.json
 │     │  ├─ game.js
 │     │  └─ data/cau.txt
+│     ├─ chon-tu/          # không cần mic — chơi được trên tivi
+│     │  ├─ manifest.json
+│     │  ├─ game.js
+│     │  └─ data/tu.txt
 │     └─ _template/        # bộ khung để copy khi làm game mới
 ├─ kids/                   # DỮ LIỆU, không commit lên git
 │  ├─ min/
@@ -271,6 +276,9 @@ Sửa `profile.json` phải có hiệu lực ở lần tải trang sau, không c
 
 `asr_mode`: `closed_set` (mặc định) hoặc `free_text`.
 
+`needs`: `["mic"]` cho trò cần bé nói. Khai `[]` thì lõi giấu nút mic đi — dành cho
+trò chơi bằng tay/điều khiển (xem §7.4).
+
 ### 7.2 game.js
 
 ```js
@@ -293,6 +301,9 @@ export default {
     //     `source` là 'browser' | 'server' — để debug.
 
     // ctx.speak(text, { rate })     -> Promise, TTS tiếng Việt
+    // ctx.speech.supported()        máy có TTS không
+    // ctx.speech.hasVoice(lang)     có giọng đọc thứ tiếng đó không
+    // ctx.dpad({ axis, onKey })     con trỏ mũi tên + OK cho điều khiển tivi
     // ctx.correct(el)               hiệu ứng đúng + tiếng ding
     // ctx.wrong(el)                 hiệu ứng sai + tiếng báo
     // ctx.star()                    cộng 1 sao; đủ số sao thì lõi
@@ -316,6 +327,25 @@ trong `games/index.json` (một mảng id — vì trình duyệt không liệt k
 Không sửa dòng code lõi nào.
 
 Bàn giao kèm `games/_template/` chạy được ngay: một trò chơi tối giản minh hoạ đủ vòng đời.
+
+### 7.4 Trò chơi trên tivi (không mic, điều khiển bằng D-pad)
+
+Android TV (Coocaa, Xiaomi...) **không cho trình duyệt dùng micro** — mọi trò dựa trên
+`ctx.listen()` đứng hình ở đó. Nên có thêm một nhánh trò chơi chơi bằng tay:
+
+| Thứ | Luật |
+|---|---|
+| `manifest.needs` | `[]` -> lõi giấu nút mic. Dòng `#status` vẫn giữ. |
+| Phím | `core/keys.js` quy mọi mã phím của mọi hãng về 6 tên: `left/right/up/down/ok/back` |
+| Con trỏ | `ctx.dpad({ axis, enabled, onKey })` — mũi tên đi, OK bấm, tự bỏ qua ô đã khoá |
+| Nút Back | Vỏ ứng dụng lo: màn chơi -> chọn trò -> chọn bé |
+| Một phím một việc | Một `keydown` chỉ được MỘT chỗ xử lý (`keys.js` đánh dấu sự kiện đã dùng) |
+| Vòng viền chọn | Class `.sel`, **không** chỉ dựa vào `:focus-visible` — trình duyệt tivi đời cũ chưa có |
+| Không có giọng Việt | Hỏi `ctx.speech.hasVoice()`, thiếu thì phải bày cách chơi khác (hình gợi ý) |
+
+Trò đầu tiên theo nhánh này là `chon-tu`: hiện 2-3 từ ngắn, đọc *"Bé hãy chọn đâu là …"*,
+im lặng 5 giây thì đọc lại, bé chọn bằng chuột / chạm / `◀ ▶` + `OK`.
+Số từ mỗi lượt lấy từ `profile.games["chon-tu"].so_lua_chon` (2 hoặc 3).
 
 ---
 

@@ -7,6 +7,8 @@ Bé đọc to tiếng Việt, máy nghe và mở khoá phần thưởng.
 - **`doc-cau`** — đọc câu ngắn, đọc đúng chữ nào thì chữ đó sáng lên.
   Chạy được **tiếng Việt hoặc tiếng Anh** — bé nào cũng đổi qua lại được
   ngay trong lúc chơi, hồ sơ chỉ quyết định tiếng mở màn
+- **`chon-tu`** — nghe rồi chọn đúng từ; **không cần mic**, chơi được bằng
+  điều khiển tivi (Android TV không cho trình duyệt dùng micro)
 
 Chi tiết yêu cầu: [`SPEC.md`](SPEC.md). Cài đặt: [`deploy/install.md`](deploy/install.md).
 
@@ -65,6 +67,31 @@ Micro cần secure origin: `localhost` thì được, vào bằng IP trong LAN t
 Model thật: chạy `scripts/export_onnx.py` trên máy có PyTorch, copy 2 file
 `.onnx` + `vocab.json` sang `models/`.
 
+---
+
+## Chơi trên tivi (Android TV)
+
+Trình duyệt trên Android TV (Coocaa, Xiaomi...) **không cho dùng micro**, nên
+`dem-so` và `doc-cau` không chạy được ở đó — chúng chờ bé nói mà mic thì không
+bao giờ mở. `chon-tu` sinh ra cho tình huống này: cả trò chỉ cần 3 phím.
+
+| Phím trên điều khiển | Việc |
+|---|---|
+| `◀` `▶` | đi giữa các ô (từ, tên bé, tên trò) |
+| `OK` | chọn |
+| `▲` `▼` | nghe lại đề |
+| `Back` | lùi một bậc: màn chơi → chọn trò → chọn bé |
+
+Cả màn chọn bé và chọn trò cũng đi được bằng điều khiển, nên không cần chuột.
+
+Tivi thường **không có giọng đọc tiếng Việt** — lúc đó `chon-tu` tự đổi bong bóng
+loa thành hình gợi ý để bé vẫn chơi được. Cài thêm giọng Việt cho máy (Cài đặt →
+Text-to-speech) thì trò chơi tự dùng lại đường đọc.
+
+Điểm tiện: trò này không đụng tới mic nên **không cần HTTPS** — trên tivi cứ mở
+thẳng `http://<IP máy chủ>:8000/app/` là chơi được, khỏi cài chứng chỉ. Còn muốn
+chơi `dem-so`/`doc-cau` trên thiết bị khác thì vẫn phải HTTPS như cũ.
+
 ## Kiểm thử
 
 ```bash
@@ -92,6 +119,7 @@ frontend/
   admin.html         trang bố mẹ: video thưởng, ngưỡng, độ khó
   core/asr.js        chạy đua trình duyệt + máy chủ
   core/audio.js      thu PCM, VAD phía client, đóng gói WAV 16k
+  core/keys.js       bàn phím + điều khiển tivi (mũi tên / OK / Back)
   games/<id>/        mỗi trò chơi một thư mục
 kids/<id>/           hồ sơ + video thưởng (KHÔNG commit)
 models/              file .onnx (KHÔNG commit)
@@ -110,6 +138,7 @@ data/                app.db + clip audio (KHÔNG commit)
 | Đổi câu khen, tốc độ đọc mẫu | `admin.html`, hoặc sửa `kids/<id>/profile.json` | Không |
 | Thêm bé | `admin.html` → "Thêm bé mới" | Không |
 | Thêm câu tập đọc | Sửa `frontend/games/doc-cau/data/cau.txt` | Không |
+| Thêm từ cho "Chọn từ" | Sửa `frontend/games/chon-tu/data/tu.txt` (`từ\|emoji`) | Không |
 | Thêm trò chơi | Copy `games/_template/` + thêm 1 dòng vào `games/index.json` — xem [README của template](frontend/games/_template/README.md) | Không |
 | Đổi model ASR | Thay file trong `models/` | Có |
 

@@ -102,7 +102,12 @@ export async function celebrate(kid, opts = {}) {
   }
 
   setTimeout(() => speak(text, { rate: kid.tts_rate || 0.8 }), 900);
-  const showAgain = () => again.classList.add('show');
+  // Hiện nút "Chơi tiếp" và ĐƯA CON TRỎ VÀO nó — trên tivi không có chuột,
+  // không focus thì bé bấm OK cũng không có gì xảy ra.
+  const showAgain = () => {
+    again.classList.add('show');
+    try { again.focus({ preventScroll: true }); } catch (e) { /* trình duyệt cũ */ }
+  };
   const timer = setTimeout(showAgain, 2500);
   vid.onended = showAgain;
 
