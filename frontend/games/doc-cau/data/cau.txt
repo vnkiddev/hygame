@@ -1,0 +1,53 @@
+# Mỗi dòng: câu | emoji
+# Câu 4-6 chữ, chữ thông dụng. Dòng bắt đầu bằng # bị bỏ qua.
+
+Con mèo đang ngủ | 🐱
+Bố lái xe đi làm | 🚗
+Mẹ nấu cơm rất ngon | 🍚
+Bé ăn quả chuối vàng | 🍌
+Con chó chạy ra sân | 🐶
+Ông trồng cây trong vườn | 🌳
+Bà cho bé quả cam | 🍊
+Con cá bơi dưới nước | 🐟
+Chim hót trên cành cây | 🐦
+Bé rửa tay thật sạch | 🧼
+Trời mưa to quá | 🌧️
+Máy xúc xúc cát | 🚜
+Xe buýt màu vàng | 🚌
+Bé thích uống sữa | 🥛
+Con gà gáy sáng sớm | 🐓
+Mặt trời mọc rồi | 🌞
+Bé đi học vui lắm | 🎒
+Con voi có vòi dài | 🐘
+Anh đá bóng ngoài sân | ⚽
+Chị đọc sách cho bé | 📖
+Bé ngủ ngon giấc | 😴
+Con thỏ ăn cà rốt | 🐰
+Trăng sáng trên trời | 🌙
+Bé vẽ ngôi nhà nhỏ | 🏠
+Mẹ đi chợ mua rau | 🥬
+Con vịt bơi trong ao | 🦆
+Bé đánh răng buổi tối | 🪥
+Ô tô chạy trên đường | 🚙
+Con ong bay đi tìm mật | 🐝
+Bé cười thật tươi | 😄
+Bố bế bé lên cao | 🤗
+Cây có nhiều lá xanh | 🍃
+Bé xếp hình rất giỏi | 🧩
+Con bò ăn cỏ non | 🐮
+Quả táo đỏ thật ngon | 🍎
+Bé tô màu bức tranh | 🎨
+Con kiến bò trên tường | 🐜
+Mưa rơi trên mái nhà | 🌧️
+Bé chạy nhanh như gió | 🏃
+Đèn đỏ thì dừng lại | 🚦
+Con lợn kêu ụt ịt | 🐷
+Bé giúp mẹ quét nhà | 🧹
+Hoa nở đẹp trong vườn | 🌸
+Con cua có hai càng | 🦀
+Bé thích chơi cầu trượt | 🛝
+Ông đọc báo bên bàn | 📰
+Đàn cá bơi tung tăng | 🐠
+Bé mặc áo màu xanh | 👕
+Con nhện giăng tơ | 🕸️
+Bé chúc bà ngủ ngon | 🌛
