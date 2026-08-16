@@ -61,6 +61,12 @@
   th{font-size:12px;text-transform:uppercase;opacity:.5}
   details summary{cursor:pointer;font-weight:600;font-size:15px;padding:6px 0}
   #health{font-size:13px;opacity:.8}
+  .lenient{margin:6px 0 0}
+  .lenient input[type=range]{width:100%;accent-color:var(--yellow);height:32px}
+  .lenient .ends{display:flex;justify-content:space-between;font-size:13px;opacity:.6}
+  .lenient .now{font-weight:700;font-size:16px;text-align:center;margin:2px 0 0}
+  .lenient .now small{font-weight:500;opacity:.55;font-family:ui-monospace,monospace}
+  details.adv summary{font-size:13px;opacity:.6;font-weight:600}
 </style>
 </head>
 <body>
@@ -175,17 +181,24 @@ function kidCard(kid) {
       </div>
     </fieldset>
 
-    <fieldset><legend>🎤 Ngưỡng nhận diện</legend>
-      <p class="muted">Bé nói càng chưa rõ thì đặt càng thấp. Min 0.45/0.12 · Ly 0.25/0.05.
-         Đây là con số đoán ban đầu — chỉnh lại bằng dữ liệu thật sau vài tuần.</p>
-      <div class="grid">
-        <div><label>Ngưỡng chấp nhận (threshold)</label>
-             <input type="number" step="0.05" min="0" max="1" data-f="threshold" value="${asr.threshold ?? 0.45}"></div>
-        <div><label>Cách biệt tối thiểu (margin)</label>
-             <input type="number" step="0.01" min="0" max="1" data-f="margin" value="${asr.margin ?? 0.12}"></div>
-        <div><label>Sai mấy lần thì đọc mẫu</label>
-             <input type="number" min="1" max="5" data-f="max_wrong_before_hint" value="${asr.max_wrong_before_hint ?? 2}"></div>
+    <fieldset><legend>🎤 Máy chấm dễ hay khó</legend>
+      <p class="muted">Kéo sang trái nếu bé nói chưa rõ mà máy hay bắt đọc lại.
+         Kéo sang phải nếu máy dễ dãi quá, bé đọc sai vẫn cho qua.</p>
+      <div class="lenient">
+        <input type="range" min="1" max="5" step="1" data-lenient value="3">
+        <div class="ends"><span>← Dễ (bé nói chưa rõ)</span><span>Khó (đọc phải chuẩn) →</span></div>
+        <p class="now" data-lenient-label></p>
       </div>
+      <details class="adv"><summary>Số cụ thể (chỉ sửa khi đã xem thống kê)</summary>
+        <div class="grid">
+          <div><label>Ngưỡng chấp nhận (threshold)</label>
+               <input type="number" step="0.05" min="0" max="1" data-f="threshold" value="${asr.threshold ?? 0.45}"></div>
+          <div><label>Cách biệt tối thiểu (margin)</label>
+               <input type="number" step="0.01" min="0" max="1" data-f="margin" value="${asr.margin ?? 0.12}"></div>
+          <div><label>Sai mấy lần thì đọc mẫu</label>
+               <input type="number" min="1" max="5" data-f="max_wrong_before_hint" value="${asr.max_wrong_before_hint ?? 2}"></div>
+        </div>
+      </details>
     </fieldset>
 
     <fieldset><legend>🎮 Trò chơi</legend>
@@ -198,17 +211,70 @@ function kidCard(kid) {
 
   drawVideos(c, kid);
   drawGames(c, kid);
+  wireLeniency(c);
   wireUpload(c, kid);
   wireStats(c, kid);
   c.querySelector('[data-save]').onclick = () => saveKid(c, kid);
   return c;
 }
 
+// 5 mức, từ dễ tới khó. Đây là con số khởi điểm của SPEC §4.3 trải ra —
+// vẫn phải chỉnh lại bằng dữ liệu thật sau vài tuần (xem mục Thống kê).
+const LENIENCY = [
+  null,
+  { name: 'Rất dễ',  threshold: 0.15, margin: 0.02, hint: 'bé mới tập nói' },
+  { name: 'Dễ',      threshold: 0.25, margin: 0.05, hint: 'mức của Ly' },
+  { name: 'Vừa',     threshold: 0.35, margin: 0.08, hint: 'đa số nên dùng mức này' },
+  { name: 'Khó',     threshold: 0.45, margin: 0.12, hint: 'mức của Min' },
+  { name: 'Rất khó', threshold: 0.60, margin: 0.20, hint: 'phải đọc thật chuẩn' },
+];
+
+function levelOf(threshold, margin) {
+  for (let i = 1; i < LENIENCY.length; i++) {
+    if (Math.abs(LENIENCY[i].threshold - threshold) < 0.001
+        && Math.abs(LENIENCY[i].margin - margin) < 0.001) return i;
+  }
+  return 0;   // 0 = số tự đặt tay, không khớp mức nào
+}
+
+function wireLeniency(c) {
+  const slider = c.querySelector('[data-lenient]');
+  const label = c.querySelector('[data-lenient-label]');
+  const thEl = c.querySelector('[data-f="threshold"]');
+  const mgEl = c.querySelector('[data-f="margin"]');
+
+  const paint = () => {
+    const lvl = levelOf(parseFloat(thEl.value), parseFloat(mgEl.value));
+    if (lvl) slider.value = String(lvl);
+    const L = LENIENCY[lvl] || null;
+    label.innerHTML = L
+      ? `${L.name} <small>· ${L.hint} · ${L.threshold} / ${L.margin}</small>`
+      : `Tự đặt tay <small>· ${thEl.value} / ${mgEl.value}</small>`;
+  };
+  slider.oninput = () => {
+    const L = LENIENCY[parseInt(slider.value, 10)];
+    thEl.value = L.threshold;
+    mgEl.value = L.margin;
+    paint();
+  };
+  // Sửa tay ở phần nâng cao thì thanh trượt phải theo kịp
+  thEl.oninput = paint;
+  mgEl.oninput = paint;
+  paint();
+}
+
 function drawGames(c, kid) {
   const box = c.querySelector('[data-games]');
   const known = {
-    'dem-so': [['max_number', 'Đếm tới số', 20], ['cells', 'Số ô mỗi lượt', 5]],
-    'doc-cau': [['min_words', 'Câu ngắn nhất (chữ)', 4], ['max_words', 'Câu dài nhất (chữ)', 6]],
+    'dem-so': [
+      ['max_number', 'Đếm tới số', 20, 'number'],
+      ['cells', 'Số ô mỗi lượt', 5, 'number'],
+    ],
+    'doc-cau': [
+      ['lang', 'Ngôn ngữ', 'vi', 'select', [['vi', '🇻🇳 Tiếng Việt'], ['en', '🇬🇧 Tiếng Anh']]],
+      ['min_words', 'Câu ngắn nhất (chữ)', 4, 'number'],
+      ['max_words', 'Câu dài nhất (chữ)', 6, 'number'],
+    ],
   };
   const cfgs = kid.games || {};
   const ids = Array.from(new Set([...Object.keys(known), ...Object.keys(cfgs)]));
@@ -220,9 +286,16 @@ function drawGames(c, kid) {
     row.dataset.game = gid;
     let html = `<span class="gname">${gid}</span>
       <label class="chk"><input type="checkbox" data-g="enabled" ${cfg.enabled !== false ? 'checked' : ''}> bật</label>`;
-    (known[gid] || []).forEach(([k, lbl, dft]) => {
+    (known[gid] || []).forEach(([k, lbl, dft, kind, options]) => {
+      const val = cfg[k] ?? dft;
+      const field = kind === 'select'
+        ? `<select data-g="${k}" data-kind="select" style="width:auto">${
+            options.map(([v, t2]) =>
+              `<option value="${v}"${String(val) === v ? ' selected' : ''}>${t2}</option>`).join('')
+          }</select>`
+        : `<input type="number" data-g="${k}" value="${val}">`;
       html += `<label style="display:flex;gap:6px;align-items:center;margin:0;font-weight:500">
-        ${lbl} <input type="number" data-g="${k}" value="${cfg[k] ?? dft}"></label>`;
+        ${lbl} ${field}</label>`;
     });
     row.innerHTML = html;
     box.appendChild(row);
@@ -350,7 +423,9 @@ async function saveKid(c, kid) {
   c.querySelectorAll('[data-game]').forEach((row) => {
     const cfg = { ...(kid.games || {})[row.dataset.game] };
     row.querySelectorAll('[data-g]').forEach((inp) => {
-      cfg[inp.dataset.g] = inp.type === 'checkbox' ? inp.checked : parseInt(inp.value, 10);
+      if (inp.type === 'checkbox') cfg[inp.dataset.g] = inp.checked;
+      else if (inp.dataset.kind === 'select') cfg[inp.dataset.g] = inp.value;
+      else cfg[inp.dataset.g] = parseInt(inp.value, 10);
     });
     games[row.dataset.game] = cfg;
   });
@@ -368,6 +443,12 @@ async function saveKid(c, kid) {
     games,
     rewards: { ...(kid.rewards || {}), stars_needed: parseInt(get('stars_needed'), 10) },
   };
+  const dc = games['doc-cau'];
+  if (dc && dc.min_words > dc.max_words) {
+    msg.className = 'err';
+    msg.textContent = 'Câu ngắn nhất đang lớn hơn câu dài nhất — sửa lại nhé.';
+    return;
+  }
   msg.className = 'muted';
   msg.textContent = 'Đang lưu…';
   try {

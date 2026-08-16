@@ -147,6 +147,9 @@ function makeCtx(manifest, root) {
         expected: o.expected,
         sequence: o.sequence,
         aliases: o.aliases,
+        lang: o.lang || cfg.lang || 'vi',
+        stream: o.stream,
+        partialMs: o.partialMs,
         timeoutMs: o.timeoutMs || 5000,
         silenceMs: o.silenceMs,
         kid,
@@ -161,7 +164,9 @@ function makeCtx(manifest, root) {
       return res;
     },
 
-    speak: (text, opt = {}) => speak(text, { rate: opt.rate || rate, ...opt }),
+    speak: (text, opt = {}) => speak(text, {
+      rate: opt.rate || rate, lang: opt.lang || cfg.lang || 'vi', ...opt,
+    }),
     status: (t) => { $('status').textContent = t || ''; },
 
     correct(node) { pop(node); sfx.ding(); },

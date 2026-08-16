@@ -2,12 +2,50 @@
 // Bản port từ prototype doc-cau.html — giữ đường nhựa + máy xúc chạy theo
 // tiến độ, thay lõi nghe bằng ctx.listen().
 
-const FALLBACK = [
-  'Con mèo đang ngủ|🐱', 'Bố lái xe đi làm|🚗', 'Mẹ nấu cơm rất ngon|🍚',
-  'Bé ăn quả chuối vàng|🍌', 'Con chó chạy ra sân|🐶', 'Máy xúc xúc cát|🚜',
-  'Trời mưa to quá|🌧️', 'Bé thích uống sữa|🥛', 'Mặt trời mọc rồi|🌞',
-  'Con voi có vòi dài|🐘',
-];
+const FALLBACK = {
+  vi: [
+    'Con mèo đang ngủ|🐱', 'Bố lái xe đi làm|🚗', 'Mẹ nấu cơm rất ngon|🍚',
+    'Bé ăn quả chuối vàng|🍌', 'Con chó chạy ra sân|🐶', 'Máy xúc xúc cát|🚜',
+    'Trời mưa to quá|🌧️', 'Bé thích uống sữa|🥛', 'Mặt trời mọc rồi|🌞',
+    'Con voi có vòi dài|🐘',
+  ],
+  en: [
+    'The cat is sleeping|🐱', 'I like red apples|🍎', 'The dog runs fast|🐶',
+    'The sun is hot|🌞', 'Fish swim in water|🐟', 'The car is blue|🚗',
+    'The moon is bright|🌙', 'I drink cold milk|🥛', 'A frog can jump|🐸',
+    'The digger moves sand|🚜',
+  ],
+};
+
+// Chữ hiện trên màn hình, theo ngôn ngữ bé đang học.
+const TEXT = {
+  vi: {
+    file: 'data/cau.txt',
+    readEach: 'Đọc từng chữ nhé',
+    good: 'Giỏi lắm! Chữ tiếp theo nào',
+    done: 'Đọc xong cả câu rồi!',
+    listenThen: 'Nghe rồi đọc theo nhé',
+    thisWordIs: (w) => `Chữ này là ${w}`,
+    notClear: 'Chưa nghe rõ. Đọc to lên nào!',
+    wrong: (w, heard) => `Chưa đúng${heard}. Đọc chữ “${w}” nào!`,
+    heardAs: (b) => ` (nghe thành “${b}”)`,
+    sample: '🔊 Nghe mẫu',
+    help: '👉 Mở giúp',
+  },
+  en: {
+    file: 'data/cau-en.txt',
+    readEach: 'Read each word',
+    good: 'Great! Next word',
+    done: 'You read the whole sentence!',
+    listenThen: 'Listen, then say it',
+    thisWordIs: (w) => `This word is ${w}`,
+    notClear: 'I did not hear you. Say it louder!',
+    wrong: (w, heard) => `Not yet${heard}. Say “${w}”!`,
+    heardAs: (b) => ` (I heard “${b}”)`,
+    sample: '🔊 Listen',
+    help: '👉 Open it',
+  },
+};
 
 function parseList(txt) {
   const out = [];
@@ -26,6 +64,10 @@ export default {
   id: 'doc-cau',
 
   async setup(ctx) {
+    // Ngôn ngữ đặt trong hồ sơ từng bé (trang quản trị). Ly học tiếng Việt,
+    // Min học tiếng Anh — nên cùng một trò chơi phải chạy được cả hai.
+    const lang = ctx.settings.lang === 'en' ? 'en' : 'vi';
+    const T = TEXT[lang];
     const minW = ctx.settings.min_words || 3;
     const maxW = ctx.settings.max_words || 6;
     let alive = true;
@@ -41,17 +83,22 @@ export default {
     // --- danh sách câu ---
     let list = [];
     try {
-      const r = await fetch(ctx.assetUrl('data/cau.txt'), { cache: 'no-store' });
+      const r = await fetch(ctx.assetUrl(T.file), { cache: 'no-store' });
       if (!r.ok) throw new Error(r.status);
       list = parseList(await r.text());
     } catch (e) {
-      list = parseList(FALLBACK.join('\n'));
+      list = parseList(FALLBACK[lang].join('\n'));
     }
-    list = list.filter((c) => {
+    const fits = (c) => {
       const n = c.s.split(/\s+/).length;
       return n >= minW && n <= maxW;
-    });
-    if (!list.length) list = parseList(FALLBACK.join('\n'));
+    };
+    const filtered = list.filter(fits);
+    // Bố mẹ đặt khoảng độ dài quá hẹp thì đừng bỏ trắng trò chơi — dùng cả
+    // danh sách còn hơn là không có câu nào.
+    list = filtered.length ? filtered : list;
+    if (!list.length) list = parseList(FALLBACK[lang].join('\n'));
+    ctx.log('sentence_pool', { lang, total: list.length, min_words: minW, max_words: maxW });
 
     // --- dựng DOM ---
     const stage = document.createElement('div');
@@ -74,8 +121,8 @@ export default {
       b.onclick = fn;
       bar.appendChild(b);
     };
-    btn('🔊 Nghe mẫu', () => hint(true));
-    btn('👉 Mở giúp', () => { if (alive && idx < words.length) advanceTo(idx + 1); });
+    btn(T.sample, () => hint(true));
+    btn(T.help, () => { if (alive && idx < words.length) advanceTo(idx + 1); });
     ctx.root.appendChild(bar);
 
     function paint() {
@@ -108,12 +155,12 @@ export default {
         d.className = 'w';
         d.textContent = w;
         // Chạm vào chữ để nghe máy đọc mẫu chữ đó.
-        d.onclick = async () => { await ctx.speak(w, { rate: 0.7 }); if (i === idx) loop(); };
+        d.onclick = async () => { await ctx.speak(w, { rate: 0.7, lang }); if (i === idx) loop(); };
         wordsEl.appendChild(d);
       });
       paint();
-      ctx.log('sentence_start', { text: cur.s, words: words.length });
-      ctx.status('Đọc từng chữ nhé');
+      ctx.log('sentence_start', { text: cur.s, words: words.length, lang });
+      ctx.status(T.readEach);
       await ctx.sleep(500);
       loop();
     }
@@ -128,15 +175,15 @@ export default {
       wrong = 0;
       paint();
       if (idx >= words.length) { finishSentence(); return; }
-      ctx.status('Giỏi lắm! Chữ tiếp theo nào');
+      ctx.status(T.good);
       await ctx.sleep(350);
       loop();
     }
 
     async function finishSentence() {
       picEl.classList.add('reveal');
-      ctx.status('Đọc xong cả câu rồi!');
-      await ctx.speak(cur.s, { rate: 0.75 });
+      ctx.status(T.done);
+      await ctx.speak(cur.s, { rate: 0.75, lang });
       const done = await ctx.star();
       if (!alive) return;
       if (done) ctx.status('');
@@ -145,8 +192,8 @@ export default {
 
     async function hint(manual) {
       const w = words[idx] || '';
-      await ctx.speak(manual ? w : `Chữ này là ${w}`, { rate: 0.65 });
-      if (!manual) ctx.status('Nghe rồi đọc theo nhé');
+      await ctx.speak(manual ? w : T.thisWordIs(w), { rate: 0.65, lang });
+      if (!manual) ctx.status(T.listenThen);
       await ctx.sleep(250);
       loop();
     }
@@ -159,7 +206,7 @@ export default {
       // nhiều chữ thì mở luôn nhiều chữ (ăn dần từ trái sang như prototype).
       const remaining = words.slice(idx);
       const candidates = Array.from(new Set(remaining));
-      const r = await ctx.listen({ candidates, expected: want, sequence: remaining });
+      const r = await ctx.listen({ candidates, expected: want, sequence: remaining, lang });
       listening = false;
       if (!alive) return;
 
@@ -170,7 +217,7 @@ export default {
       ctx.log('miss', { expected: want, heard: r.best || r.heard, prob: r.bestProb });
 
       if (r.silent) {
-        ctx.status('Chưa nghe rõ. Đọc to lên nào!');
+        ctx.status(T.notClear);
         await ctx.sleep(450);
         loop();
         return;
@@ -180,8 +227,8 @@ export default {
         hint(false);
         return;
       }
-      const heard = r.best && r.best !== want ? ` (nghe thành “${r.best}”)` : '';
-      ctx.status(`Chưa đúng${heard}. Đọc chữ “${want}” nào!`);
+      const heard = r.best && r.best !== want ? T.heardAs(r.best) : '';
+      ctx.status(T.wrong(want, heard));
       await ctx.sleep(500);
       loop();
     }

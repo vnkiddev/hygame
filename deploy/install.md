@@ -206,6 +206,8 @@ Không có bước build. Thêm game hoặc video thưởng thì **không cần 
 | `CLIP_RETENTION_DAYS` | `90` | Giữ clip bao lâu |
 | `ALLOWED_NETS` | các dải LAN | Dải IP được phép gọi API. `*` để tắt |
 | `ADMIN_TOKEN` | rỗng | Đặt để khoá trang quản trị |
+| `ASR_MODEL_EN_PATH` | rỗng | Model tiếng Anh (tuỳ chọn). Không đặt thì phần tiếng Anh chạy bằng trình duyệt |
+| `ASR_VOCAB_EN_PATH` | cạnh model EN | Bảng token của model tiếng Anh |
 | `WHISPER_ENABLED` | `0` | Bật đường phụ transcript tự do |
 | `MAX_AUDIO_SEC` | `6` | Cắt cứng audio dài hơn mức này |
 

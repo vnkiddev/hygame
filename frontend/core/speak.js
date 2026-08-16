@@ -1,12 +1,15 @@
 // TTS tiếng Việt. Web Speech Synthesis có nhiều bug ở Safari iOS
 // (onend không bắn), nên luôn có hẹn giờ dự phòng để không kẹt Promise.
 
-let viVoice = null;
+const voices = { vi: null, en: null };
 
 function pickVoice() {
   if (!window.speechSynthesis) return;
   const vs = speechSynthesis.getVoices() || [];
-  viVoice = vs.find((v) => /^vi/i.test(v.lang)) || null;
+  voices.vi = vs.find((v) => /^vi/i.test(v.lang)) || null;
+  // Ưu tiên giọng en-US/en-GB, tránh vớ phải en-IN nghe lạ tai với trẻ.
+  voices.en = vs.find((v) => /^en[-_](US|GB)/i.test(v.lang))
+    || vs.find((v) => /^en/i.test(v.lang)) || null;
 }
 
 if (window.speechSynthesis) {
@@ -14,7 +17,7 @@ if (window.speechSynthesis) {
   speechSynthesis.onvoiceschanged = pickVoice;
 }
 
-export function hasVoice() { return !!viVoice; }
+export function hasVoice(lang) { return !!voices[lang === 'en' ? 'en' : 'vi']; }
 
 export function cancelSpeech() {
   try { speechSynthesis.cancel(); } catch (e) { /* không có TTS */ }
@@ -25,7 +28,8 @@ export function cancelSpeech() {
  * @returns {Promise<void>} luôn resolve, không bao giờ reject hay treo.
  */
 export function speak(text, opts = {}) {
-  const { rate = 0.8, pitch = 1.1, interrupt = true } = opts;
+  const { rate = 0.8, pitch = 1.1, interrupt = true, lang = 'vi' } = opts;
+  const isEn = lang === 'en';
   return new Promise((resolve) => {
     if (!window.speechSynthesis || !text) { setTimeout(resolve, 200); return; }
     let done = false;
@@ -33,10 +37,11 @@ export function speak(text, opts = {}) {
     try {
       if (interrupt) speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(String(text));
-      u.lang = 'vi-VN';
+      u.lang = isEn ? 'en-US' : 'vi-VN';
       u.rate = rate;
       u.pitch = pitch;
-      if (viVoice) u.voice = viVoice;
+      const v = voices[isEn ? 'en' : 'vi'];
+      if (v) u.voice = v;
       u.onend = finish;
       u.onerror = finish;
       speechSynthesis.speak(u);

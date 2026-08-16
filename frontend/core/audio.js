@@ -90,6 +90,24 @@ function feed(chunk, sr) {
 
   if (a.gotSpeech && a.silence >= a.silenceMs) finish('silence');
   else if (a.elapsed >= a.maxMs) finish(a.gotSpeech ? 'maxlen' : 'no-speech');
+  else maybePartial(a);
+}
+
+// Chấm liên tục: cứ mỗi `partialMs` lại đưa ra bản chụp audio TỪ ĐẦU tới
+// giờ để máy chủ chấm thử. Nhờ vậy bé đọc rõ là được chấp nhận NGAY trong
+// lúc còn đang nói, khỏi phải đợi hết 700ms im lặng rồi mới bắt đầu tính.
+function maybePartial(a) {
+  if (!a.onPartial || !a.gotSpeech) return;
+  if (a.elapsed < a.partialMinMs) return;
+  if (a.elapsed - a.lastPartial < a.partialMs) return;
+  a.lastPartial = a.elapsed;
+  a.onPartial(snapshot(a), a.elapsed);
+}
+
+/** Bản chụp audio đã thu tới thời điểm này, đóng gói WAV 16k. */
+function snapshot(a) {
+  const pcm = merge(a.chunks, a.samples);
+  return encodeWav(resample(pcm, a.sampleRate || TARGET_SR, TARGET_SR), TARGET_SR);
 }
 
 function finish(reason) {
@@ -114,7 +132,10 @@ function finish(reason) {
  * @returns {Promise<{wav:Blob, samples:Float32Array, ms:number, reason:string, gotSpeech:boolean}>}
  */
 export async function record(opts = {}) {
-  const { silenceMs = 700, maxMs = 5000, onLevel = null } = opts;
+  const {
+    silenceMs = 700, maxMs = 5000, onLevel = null,
+    onPartial = null, partialMs = 350, partialMinMs = 450,
+  } = opts;
   await ensureMic();
   if (active) stopRecording();
   return new Promise((resolve) => {
@@ -122,6 +143,7 @@ export async function record(opts = {}) {
       chunks: [], samples: 0, sampleRate: TARGET_SR, elapsed: 0, voiced: 0,
       silence: 0, peak: 0, noise: 0, gotSpeech: false, done: false,
       silenceMs, maxMs, onLevel, resolve,
+      onPartial, partialMs, partialMinMs, lastPartial: 0,
     };
   });
 }

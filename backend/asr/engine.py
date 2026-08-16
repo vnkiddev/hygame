@@ -24,7 +24,10 @@ log = logging.getLogger("asr")
 
 
 class ASREngine:
-    def __init__(self) -> None:
+    def __init__(self, lang: str = "vi", model_path=None, vocab_path=None) -> None:
+        self.lang = lang
+        self.model_path = model_path or config.ASR_MODEL_PATH
+        self.vocab_path = vocab_path or config.ASR_VOCAB_PATH
         self.session = None
         self.lexicon: Lexicon | None = None
         self.model_name = ""
@@ -38,7 +41,7 @@ class ASREngine:
 
     # --- vòng đời ---------------------------------------------------------
     def load(self) -> None:
-        mp, vp = config.ASR_MODEL_PATH, config.ASR_VOCAB_PATH
+        mp, vp = self.model_path, self.vocab_path
         if not mp.exists():
             self.error = f"Chưa có model: {mp}. Chạy scripts/export_onnx.py rồi copy sang."
             log.warning(self.error)
@@ -67,7 +70,8 @@ class ASREngine:
             vocab = json.loads(Path(vp).read_text("utf-8"))
             self.lexicon = Lexicon({k: int(v) for k, v in vocab.items()})
             self.model_name = mp.name
-            log.info("Đã nạp %s (vocab %d token)", mp.name, len(vocab))
+            log.info("Đã nạp %s cho tiếng %s (vocab %d token)",
+                     mp.name, self.lang, len(vocab))
         except Exception as e:  # noqa: BLE001 — không được để sập app
             self.error = f"Nạp model hỏng: {e}"
             log.exception(self.error)
@@ -141,4 +145,23 @@ def log_softmax(x: np.ndarray) -> np.ndarray:
     return e - np.log(np.exp(e).sum(axis=-1, keepdims=True))
 
 
-engine = ASREngine()
+# Đường đi chính là tiếng Việt. Tiếng Anh là tuỳ chọn: chỉ có khi bố mẹ
+# xuất thêm một model tiếng Anh và trỏ ASR_MODEL_EN_PATH vào đó. Không có
+# thì game tiếng Anh vẫn chơi được bằng Web Speech API của trình duyệt.
+engine = ASREngine("vi")
+
+engines: dict[str, ASREngine] = {"vi": engine}
+if config.ASR_MODEL_EN_PATH:
+    engines["en"] = ASREngine("en", config.ASR_MODEL_EN_PATH, config.ASR_VOCAB_EN_PATH)
+
+
+def get_engine(lang: str | None) -> ASREngine | None:
+    """Engine cho ngôn ngữ này, hoặc None nếu chưa cấu hình."""
+    return engines.get((lang or "vi").lower()[:2])
+
+
+def boot_all() -> None:
+    """Nạp + làm nóng mọi engine đã cấu hình."""
+    for eng in engines.values():
+        eng.load()
+        eng.warmup()

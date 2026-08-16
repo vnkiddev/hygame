@@ -4,7 +4,8 @@ Bộ trò chơi học tập bằng giọng nói cho trẻ, chạy trong nhà (se
 Bé đọc to tiếng Việt, máy nghe và mở khoá phần thưởng.
 
 - **`dem-so`** — đếm số 1..20, mở lần lượt các ô bê tông
-- **`doc-cau`** — đọc câu ngắn, đọc đúng chữ nào thì chữ đó sáng lên
+- **`doc-cau`** — đọc câu ngắn, đọc đúng chữ nào thì chữ đó sáng lên.
+  Chạy được **tiếng Việt hoặc tiếng Anh**, đặt riêng cho từng bé
 
 Chi tiết yêu cầu: [`SPEC.md`](SPEC.md). Cài đặt: [`deploy/install.md`](deploy/install.md).
 
@@ -23,10 +24,23 @@ Mỗi ứng viên còn nở ra các biến thể chính tả ("bốn"/"tư", m�
 lẫn n/ng — những lỗi trẻ hay mắc), lấy điểm cao nhất trong nhóm. Nhờ vậy bé
 nói ngọng vẫn được tính đúng, mà không phải nới ngưỡng cho cả hệ thống.
 
-Client chạy đua hai nguồn: Web Speech API của trình duyệt (nhanh, kém chính
-xác) và máy chủ (chậm hơn, chính xác hơn). Bé đọc rõ thì thấy phản hồi tức
-thì; bé nói ngọng thì máy chủ cứu. Máy chủ sập thì vẫn chơi được bằng trình
-duyệt, có băng báo rõ ràng.
+Client chạy đua ba nguồn: Web Speech API của trình duyệt (nhanh, kém chính
+xác), **chấm liên tục** trong lúc bé đang nói, và bản chấm đầy đủ cuối lượt.
+Bé đọc rõ thì thấy phản hồi tức thì; bé nói ngọng thì máy chủ cứu. Máy chủ
+sập thì vẫn chơi được bằng trình duyệt, có băng báo rõ ràng.
+
+### Chấm liên tục — vì sao phản hồi nhanh
+
+Khoản trễ to nhất không phải model mà là quãng **ngồi đợi bé nói xong**
+(700ms im lặng). Forward pass chạy ở 0,25× thời gian thực, tức máy xử lý
+nhanh hơn tốc độ nói khoảng 4 lần — nên cứ mỗi 350ms lại gửi đoạn audio đã
+thu lên chấm thử, hễ từ mong đợi vượt ngưỡng của bé là chấp nhận NGAY,
+không đợi hết câu. Đây đúng là mẹo của Duolingo, chỉ khác là chấm ở máy
+trong nhà chứ không phải ở thiết bị.
+
+Lượt chấm từng phần không lưu clip và không ghi vào `attempts` — một lần bé
+nói bắn ra nhiều lượt. Bản đầy đủ cuối lượt vẫn chạy ở nền để giữ audio và
+ghi thống kê, kể cả khi đã nhận sớm.
 
 ---
 
@@ -56,6 +70,7 @@ Model thật: chạy `scripts/export_onnx.py` trên máy có PyTorch, copy 2 fil
 python3 -m tests.test_scorer                       # lõi CTC, không cần model
 python3 -m tests.test_api http://127.0.0.1:8000    # toàn bộ API + tiêu chí §12
 python3 -m tests.test_export                       # đường xuất ONNX (cần torch)
+python3 -m tests.test_stream http://127.0.0.1:8000  # chấm liên tục + song ngữ
 ```
 
 ---
@@ -87,7 +102,10 @@ data/                app.db + clip audio (KHÔNG commit)
 | Việc | Cách làm | Cần restart? |
 |---|---|---|
 | Thêm video thưởng cho bé | Kéo thả ở `admin.html`, hoặc copy vào `kids/<id>/rewards/` | Không |
-| Đổi ngưỡng / độ khó / câu khen | `admin.html`, hoặc sửa `kids/<id>/profile.json` | Không |
+| Chỉnh máy chấm dễ/khó | Thanh trượt 5 mức ở `admin.html` | Không |
+| Đổi ngôn ngữ trò tập đọc | `admin.html` → 🇻🇳/🇬🇧 cho từng bé | Không |
+| Đổi độ dài câu tập đọc | `admin.html` → câu ngắn nhất / dài nhất | Không |
+| Đổi câu khen, tốc độ đọc mẫu | `admin.html`, hoặc sửa `kids/<id>/profile.json` | Không |
 | Thêm bé | `admin.html` → "Thêm bé mới" | Không |
 | Thêm câu tập đọc | Sửa `frontend/games/doc-cau/data/cau.txt` | Không |
 | Thêm trò chơi | Copy `games/_template/` + thêm 1 dòng vào `games/index.json` — xem [README của template](frontend/games/_template/README.md) | Không |

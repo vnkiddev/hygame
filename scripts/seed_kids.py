@@ -20,18 +20,22 @@ KIDS = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "kids"
 SEED = [
     {"id": "min", "name": "Min", "age": 4, "avatar": "🚜", "tts_rate": 0.8,
      "asr": {"threshold": 0.45, "margin": 0.12, "max_wrong_before_hint": 2},
+     # Min học tiếng Anh, Ly học tiếng Việt — đổi ở trang quản trị bất cứ lúc nào
      "games": {"dem-so": {"enabled": True, "max_number": 20, "cells": 5},
-               "doc-cau": {"enabled": True, "min_words": 4, "max_words": 6}},
+               "doc-cau": {"enabled": True, "lang": "en",
+                           "min_words": 3, "max_words": 5}},
      "rewards": {"stars_needed": 3}},
     {"id": "ly", "name": "Ly", "age": 2, "avatar": "🐣", "tts_rate": 0.7,
      "asr": {"threshold": 0.25, "margin": 0.05, "max_wrong_before_hint": 2},
      "games": {"dem-so": {"enabled": True, "max_number": 10, "cells": 3},
-               "doc-cau": {"enabled": True, "min_words": 3, "max_words": 4}},
+               "doc-cau": {"enabled": True, "lang": "vi",
+                           "min_words": 3, "max_words": 4}},
      "rewards": {"stars_needed": 2}},
     {"id": "an", "name": "An", "age": 4, "avatar": "🐤", "tts_rate": 0.8,
      "asr": {"threshold": 0.45, "margin": 0.12, "max_wrong_before_hint": 2},
      "games": {"dem-so": {"enabled": True, "max_number": 20, "cells": 5},
-               "doc-cau": {"enabled": True, "min_words": 4, "max_words": 6}},
+               "doc-cau": {"enabled": True, "lang": "vi",
+                           "min_words": 4, "max_words": 6}},
      "rewards": {"stars_needed": 3}},
 ]
 

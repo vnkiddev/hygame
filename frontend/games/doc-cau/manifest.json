@@ -3,7 +3,7 @@
   "title": "Tập đọc",
   "icon": "📖",
   "description": "Đọc câu ngắn, đúng chữ nào sáng chữ đó",
-  "min_age": 3,
+  "min_age": 2,
   "needs": [
     "mic"
   ],
