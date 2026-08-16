@@ -126,7 +126,7 @@ export default {
     function paintAsk() {
       // Máy không đọc được tiếng Việt (Android TV rất hay thiếu giọng Việt)
       // thì nghe cũng bằng thừa — hiện hình gợi ý để bé vẫn chơi được.
-      const mute = !ctx.speech.supported() || !ctx.speech.vietnamese();
+      const mute = !ctx.speech.supported() || !ctx.speech.hasVoice();
       faceEl.textContent = mute ? cur.emoji : '🔊';
       askEl.classList.toggle('mute', mute);
     }

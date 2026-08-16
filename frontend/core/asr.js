@@ -85,7 +85,7 @@ function bestBrowserMatch(alternatives, expected, sequence, aliases) {
 }
 
 // --- nguồn 1: Web Speech API ------------------------------------------------
-function listenBrowser(timeoutMs, hooks) {
+function listenBrowser(timeoutMs, hooks, lang) {
   return new Promise((resolve) => {
     if (!SR) { resolve({ ok: false, alternatives: [], error: 'unsupported' }); return; }
     let rec;
@@ -93,7 +93,7 @@ function listenBrowser(timeoutMs, hooks) {
     const finish = (r) => { if (!done) { done = true; resolve(r); } };
     try {
       rec = new SR();
-      rec.lang = 'vi-VN';
+      rec.lang = lang === 'en' ? 'en-US' : 'vi-VN';
       rec.continuous = false;      // Safari iOS: bật continuous là mic không tự tắt
       rec.interimResults = false;
       rec.maxAlternatives = 6;
@@ -126,6 +126,8 @@ async function askServer(wav, req, signal) {
   fd.append('kid_id', req.kidId || '');
   fd.append('game_id', req.gameId || '');
   fd.append('session_id', req.sessionId || '');
+  fd.append('lang', req.lang || 'vi');
+  if (req.partial) fd.append('partial', '1');
   const res = await fetch('/api/recognize', { method: 'POST', body: fd, signal });
   const data = await res.json().catch(() => ({}));
   // Máy chủ chưa có model -> trả 200 kèm cờ model_unavailable, vẫn lưu clip.
@@ -148,27 +150,66 @@ async function askServer(wav, req, signal) {
  */
 export async function listen(o) {
   const kid = o.kid || {};
+  let earlyDone = false;
   const asrCfg = kid.asr || {};
   const threshold = asrCfg.threshold != null ? asrCfg.threshold : 0.45;
   const marginMin = asrCfg.margin != null ? asrCfg.margin : 0.12;
   const timeoutMs = o.timeoutMs || 5000;
   const seq = o.sequence && o.sequence.length ? o.sequence : [o.expected];
   const aliases = o.aliases || {};
+  const lang = o.lang || 'vi';
   const t0 = performance.now();
 
   const hooks = { onStart: () => o.onState && o.onState('listening') };
-  const browserP = listenBrowser(timeoutMs, hooks);
+  const browserP = listenBrowser(timeoutMs, hooks, lang);
+
+  // --- chấm liên tục ------------------------------------------------------
+  // Khoản trễ to nhất KHÔNG phải model mà là quãng ngồi đợi im lặng. Nên vừa
+  // thu vừa gửi từng đoạn lên chấm thử; hễ từ mong đợi vượt ngưỡng là nhận
+  // ngay, không đợi bé nói xong. Đây là mẹo của Duolingo, chỉ khác là chấm ở
+  // máy nhà chứ không phải ở thiết bị.
+  let earlyResolve = null;
+  const earlyP = new Promise((res) => { earlyResolve = res; });
+  let inFlight = false;      // không xếp hàng chồng chất trên con i3
+  let partialCount = 0;
+
+  const onPartial = async (wavBlob, atMs) => {
+    if (inFlight || !state.serverOK || earlyDone) return;
+    inFlight = true;
+    partialCount += 1;
+    try {
+      const d = await askServer(wavBlob, {
+        candidates: o.candidates, expected: o.expected, kidId: kid.id,
+        gameId: o.gameId, sessionId: o.sessionId, lang, partial: 1,
+      });
+      if (d && !d.unavailable && !earlyDone
+          && d.best === o.expected && d.best_prob >= threshold && d.margin >= marginMin) {
+        earlyDone = true;
+        audio.stopRecording();     // chốt sớm, khỏi đợi hết im lặng
+        earlyResolve({ data: d, atMs });
+      }
+    } catch (e) {
+      // partial hỏng thì kệ, bản đầy đủ ở cuối vẫn chạy
+    } finally {
+      inFlight = false;
+    }
+  };
 
   // Thu PCM song song để gửi máy chủ.
   let recP = null;
   if (state.micOK && state.captureOK) {
-    recP = audio.record({ silenceMs: o.silenceMs || 700, maxMs: timeoutMs, onLevel: o.onLevel })
-      .catch((e) => { state.micOK = false; return null; });
+    recP = audio.record({
+      silenceMs: o.silenceMs || 700,
+      maxMs: timeoutMs,
+      onLevel: o.onLevel,
+      onPartial: o.stream === false ? null : onPartial,
+      partialMs: o.partialMs || 350,
+    }).catch((e) => { state.micOK = false; return null; });
   }
   if (!SR) o.onState && o.onState('listening');
 
   // Cuộc đua bắt đầu.
-  const serverBox = { promise: null, controller: null, result: null };
+  const serverBox = { promise: null, controller: null, settled: undefined };
   const startServer = async () => {
     if (!recP) return null;
     const rec = await recP;
@@ -179,7 +220,7 @@ export async function listen(o) {
     try {
       const data = await askServer(rec.wav, {
         candidates: o.candidates, expected: o.expected, kidId: kid.id,
-        gameId: o.gameId, sessionId: o.sessionId,
+        gameId: o.gameId, sessionId: o.sessionId, lang,
       }, serverBox.controller.signal);
       if (!data.unavailable) setServerOK(true);
       return { data, rec };
@@ -191,10 +232,46 @@ export async function listen(o) {
   };
   serverBox.promise = startServer();
 
-  // 1. Trình duyệt trả lời trước — khớp thì nhận ngay.
+  // 1. Ai xong trước: trình duyệt, hay một lượt chấm từng phần vượt ngưỡng.
+  // Trình duyệt trả lời trước, nhưng "không hỗ trợ" thì resolve NGAY lập tức.
+  // Nếu để nó quyết cuộc đua thì vòng chấm liên tục không bao giờ kịp chạy —
+  // nên chỉ nhận khi trình duyệt thật sự KHỚP, còn lại thì đua tiếp.
   const br = await browserP;
   const bm = br.ok ? bestBrowserMatch(br.alternatives, o.expected, seq, aliases)
     : { advance: 0, heard: '' };
+
+  if (bm.advance === 0) {
+    hooks.abort && hooks.abort();
+  }
+
+  if (bm.advance === 0) {
+    // Đua giữa: một lượt chấm từng phần vượt ngưỡng, và bản đầy đủ cuối lượt.
+    const winner = await Promise.race([
+      earlyP.then((e) => ({ early: e })),
+      serverBox.promise.then((s) => ({ full: s })),
+    ]);
+    if (winner.early) return acceptEarly(winner.early);
+    serverBox.settled = winner.full;
+  }
+
+  function acceptEarly(e) {
+    const d = e.data;
+    state.lastSource = 'server-stream';
+    // Vẫn để bản đầy đủ chạy nốt ở nền để lưu clip và ghi attempts —
+    // audio của bọn trẻ là thứ quý nhất, đừng vì nhận sớm mà vứt đi.
+    serverBox.promise.catch(() => {});
+    const out = {
+      ok: true, best: d.best, bestProb: d.best_prob, margin: d.margin,
+      ranking: d.ranking || [], advance: 1, heard: d.best, source: 'server-stream',
+      partials: partialCount, elapsedMs: Math.round(performance.now() - t0),
+    };
+    logEvent('decision', {
+      expected: o.expected, best: d.best, best_prob: d.best_prob,
+      margin: d.margin, accepted: 1, source: 'server-stream',
+      partials: partialCount, at_ms: e.atMs, compute_ms: d.compute_ms,
+    }, { gameId: o.gameId });
+    return out;
+  }
 
   if (bm.advance > 0) {
     // Vẫn để request máy chủ chạy nốt cho đủ dữ liệu, chỉ không chờ nữa.
@@ -214,9 +291,9 @@ export async function listen(o) {
     return out;
   }
 
-  // 2. Trình duyệt sai hoặc câm -> chờ máy chủ.
-  hooks.abort && hooks.abort();
-  const s = await serverBox.promise;
+  // 2. Trình duyệt sai/câm, cũng không có lượt partial nào vượt ngưỡng
+  //    -> lấy kết quả bản đầy đủ (đã chờ xong ở vòng đua trên).
+  const s = serverBox.settled !== undefined ? serverBox.settled : await serverBox.promise;
 
   if (!s || s.silent) {
     return {

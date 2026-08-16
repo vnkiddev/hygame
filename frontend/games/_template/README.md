@@ -46,7 +46,7 @@ cp -r frontend/games/_template frontend/games/ten-tro-choi
 | `ctx.assetUrl('data/x.txt')` | đường dẫn file trong thư mục game |
 | `await ctx.listen({...})` | nghe một lượt → `{ ok, best, bestProb, margin, ranking, advance, source }` |
 | `await ctx.speak(text, {rate})` | đọc tiếng Việt |
-| `ctx.speech.supported()` / `.vietnamese()` | máy có TTS / có giọng **Việt** không |
+| `ctx.speech.supported()` / `.hasVoice(lang)` | máy có TTS / có giọng thứ tiếng đó không |
 | `ctx.dpad({...})` | con trỏ mũi tên + OK cho điều khiển tivi |
 | `ctx.correct(el)` / `ctx.wrong(el)` | hiệu ứng + tiếng |
 | `await ctx.star()` | cộng 1 sao; đủ sao thì lõi tự chiếu video thưởng, resolve khi bé bấm "Chơi tiếp" |

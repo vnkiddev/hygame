@@ -168,6 +168,9 @@ function makeCtx(manifest, root) {
         expected: o.expected,
         sequence: o.sequence,
         aliases: o.aliases,
+        lang: o.lang || cfg.lang || 'vi',
+        stream: o.stream,
+        partialMs: o.partialMs,
         timeoutMs: o.timeoutMs || 5000,
         silenceMs: o.silenceMs,
         kid,
@@ -182,13 +185,15 @@ function makeCtx(manifest, root) {
       return res;
     },
 
-    speak: (text, opt = {}) => speak(text, { rate: opt.rate || rate, ...opt }),
-    // Máy này đọc được tiếng Việt không? Game hỏi để còn bày cách khác cho bé
-    // (Android TV thường có TTS nhưng KHÔNG có giọng Việt). Phải là hàm, vì
-    // danh sách giọng nạp bất đồng bộ, hỏi lúc khởi động thì luôn ra rỗng.
+    speak: (text, opt = {}) => speak(text, {
+      rate: opt.rate || rate, lang: opt.lang || cfg.lang || 'vi', ...opt,
+    }),
+    // Máy này đọc được thứ tiếng của trò chơi không? Game hỏi để còn bày cách
+    // khác cho bé (Android TV thường có TTS nhưng KHÔNG có giọng Việt). Phải
+    // là hàm: danh sách giọng nạp bất đồng bộ, hỏi lúc khởi động luôn ra rỗng.
     speech: {
       supported: () => !!window.speechSynthesis,
-      vietnamese: () => hasVoice(),
+      hasVoice: (lang) => hasVoice(lang || cfg.lang || 'vi'),
     },
     status: (t) => { $('status').textContent = t || ''; },
 

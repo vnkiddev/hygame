@@ -302,7 +302,7 @@ export default {
 
     // ctx.speak(text, { rate })     -> Promise, TTS tiếng Việt
     // ctx.speech.supported()        máy có TTS không
-    // ctx.speech.vietnamese()       có giọng VIỆT không (tivi hay thiếu)
+    // ctx.speech.hasVoice(lang)     có giọng đọc thứ tiếng đó không
     // ctx.dpad({ axis, onKey })     con trỏ mũi tên + OK cho điều khiển tivi
     // ctx.correct(el)               hiệu ứng đúng + tiếng ding
     // ctx.wrong(el)                 hiệu ứng sai + tiếng báo
@@ -341,7 +341,7 @@ Android TV (Coocaa, Xiaomi...) **không cho trình duyệt dùng micro** — m�
 | Nút Back | Vỏ ứng dụng lo: màn chơi -> chọn trò -> chọn bé |
 | Một phím một việc | Một `keydown` chỉ được MỘT chỗ xử lý (`keys.js` đánh dấu sự kiện đã dùng) |
 | Vòng viền chọn | Class `.sel`, **không** chỉ dựa vào `:focus-visible` — trình duyệt tivi đời cũ chưa có |
-| Không có giọng Việt | Hỏi `ctx.speech.vietnamese()`, thiếu thì phải bày cách chơi khác (hình gợi ý) |
+| Không có giọng Việt | Hỏi `ctx.speech.hasVoice()`, thiếu thì phải bày cách chơi khác (hình gợi ý) |
 
 Trò đầu tiên theo nhánh này là `chon-tu`: hiện 2-3 từ ngắn, đọc *"Bé hãy chọn đâu là …"*,
 im lặng 5 giây thì đọc lại, bé chọn bằng chuột / chạm / `◀ ▶` + `OK`.

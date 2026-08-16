@@ -6,8 +6,9 @@ kids/_default/rewards/*
 !kids/_default/rewards/.gitkeep
 models/*
 !models/.gitkeep
-# Chỉ thư mục data/ Ở GỐC (app.db + clip audio). KHÔNG viết "data/" trơn:
-# nó nuốt luôn frontend/games/*/data/ — kho từ, kho câu của game đều mất.
+# Dấu / đầu dòng: CHỈ thư mục data ở gốc repo. Không có nó thì mọi thư mục
+# tên "data" đều bị bỏ, kể cả frontend/games/doc-cau/data/ chứa danh sách
+# câu tập đọc — máy chủ clone về sẽ thiếu, âm thầm rơi về 10 câu dự phòng.
 /data/
 
 # Python

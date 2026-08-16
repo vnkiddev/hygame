@@ -22,7 +22,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import config, db, profiles
 from .asr import vad
-from .asr.engine import engine
+from .asr.engine import boot_all, engine, engines, get_engine
 from .asr.whisper import whisper
 
 logging.basicConfig(
@@ -78,8 +78,7 @@ async def startup() -> None:
 
 def _boot_model() -> None:
     t0 = time.perf_counter()
-    engine.load()
-    engine.warmup()
+    boot_all()
     if engine.available:
         log.info("Model sẵn sàng sau %.1fs", time.perf_counter() - t0)
     else:
@@ -111,6 +110,11 @@ def health() -> dict:
         "ffmpeg": vad.has_ffmpeg(),
         "error": engine.error or None,
         "kids": len(profiles.list_kid_ids()),
+        "langs": {
+            lang: {"available": e.available, "warm": e.warm,
+                   "model": e.model_name or None, "error": e.error or None}
+            for lang, e in engines.items()
+        },
     }
 
 
@@ -124,6 +128,8 @@ async def recognize(
     kid_id: str = Form(""),
     game_id: str = Form(""),
     session_id: str = Form(""),
+    lang: str = Form("vi"),
+    partial: int = Form(0),
 ) -> JSONResponse:
     t_start = time.perf_counter()
     raw = await audio.read()
@@ -141,9 +147,17 @@ async def recognize(
     if not cand_list:
         raise HTTPException(400, "Danh sách ứng viên rỗng")
 
+    eng = get_engine(lang)
+    is_partial = bool(partial)
+
     def work() -> dict:
         x, raw_ms, kept_ms = vad.prepare(raw)
-        clip_path = _save_clip(x, kid_id, raw) if config.SAVE_CLIPS else None
+        # Lượt chấm từng phần KHÔNG lưu clip và KHÔNG ghi DB: cùng một lần bé
+        # nói sẽ bắn nhiều lượt partial, lưu hết thì rác đầy đĩa và bảng
+        # attempts sẽ đếm sai. Bản đầy đủ ở cuối mới là bản được ghi.
+        clip_path = None
+        if config.SAVE_CLIPS and not is_partial:
+            clip_path = _save_clip(x, kid_id, raw)
 
         if x.size < config.SAMPLE_RATE * 0.15:
             return {
@@ -153,7 +167,16 @@ async def recognize(
                 "clip_id": clip_path, "reason": "too_short",
             }
 
-        if not engine.available:
+        if eng is None:
+            return {
+                "model_unavailable": True, "lang_unsupported": True,
+                "error": "lang_unavailable",
+                "detail": f"Máy chủ chưa có model cho tiếng '{lang}'",
+                "audio_ms": raw_ms, "kept_ms": kept_ms, "clip_id": clip_path,
+                "compute_ms": round((time.perf_counter() - t_start) * 1000, 1),
+            }
+
+        if not eng.available:
             # Trả 200 chứ không 503: request KHÔNG hỏng — audio vẫn nhận và
             # vẫn lưu clip (dữ liệu giọng là thứ quý nhất, đừng vứt chỉ vì
             # chưa có model). Chỉ là phần nhận diện chưa dùng được, client
@@ -161,12 +184,12 @@ async def recognize(
             # 503 làm trình duyệt in đỏ console mỗi lượt bé đọc.
             return {
                 "model_unavailable": True,
-                "error": "model_unavailable", "detail": engine.error,
+                "error": "model_unavailable", "detail": eng.error,
                 "audio_ms": raw_ms, "kept_ms": kept_ms, "clip_id": clip_path,
                 "compute_ms": round((time.perf_counter() - t_start) * 1000, 1),
             }
 
-        res = engine.recognize(x, cand_list)
+        res = eng.recognize(x, cand_list)
         rank = res["ranking"]
         best = rank[0] if rank else None
         second = rank[1]["prob"] if len(rank) > 1 else 0.0
@@ -186,7 +209,11 @@ async def recognize(
             "score_ms": res["score_ms"],
             "clip_id": clip_path,
             "variant": best["variant"] if best else None,
+            "partial": is_partial,
+            "lang": lang,
         }
+        if is_partial:
+            return out
         # Ghi lượt thử. accepted để client quyết theo ngưỡng của bé,
         # ở đây ghi so khớp thô để dữ liệu không rỗng.
         db.touch_session(session_id, kid_id, game_id)

@@ -49,6 +49,16 @@ ASR_MODEL_PATH = Path(
 ASR_VOCAB_PATH = Path(
     os.environ.get("ASR_VOCAB_PATH", MODELS_DIR / "vocab.json")
 ).resolve()
+# Model tiếng Anh (tuỳ chọn) — trò chơi đọc câu có thể đặt lang="en" cho
+# từng bé. Không đặt biến này thì phần tiếng Anh chạy bằng trình duyệt.
+_en_model = os.environ.get("ASR_MODEL_EN_PATH", "").strip()
+ASR_MODEL_EN_PATH = Path(_en_model).resolve() if _en_model else None
+_en_vocab = os.environ.get("ASR_VOCAB_EN_PATH", "").strip()
+ASR_VOCAB_EN_PATH = (
+    Path(_en_vocab).resolve() if _en_vocab
+    else (ASR_MODEL_EN_PATH.with_name("vocab-en.json") if ASR_MODEL_EN_PATH else None)
+)
+
 ASR_THREADS = _int("ASR_THREADS", 2)
 # Nhiệt độ softmax khi xếp hạng ứng viên. Nhỏ -> phân bố nhọn hơn.
 ASR_SOFTMAX_T = _float("ASR_SOFTMAX_T", 1.0)

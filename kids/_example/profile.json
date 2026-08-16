@@ -5,11 +5,29 @@
   "avatar": "🚜",
   "praise": "{name} giỏi quá!",
   "tts_rate": 0.8,
-  "asr": { "threshold": 0.45, "margin": 0.12, "max_wrong_before_hint": 2 },
-  "games": {
-    "dem-so":  { "enabled": true, "max_number": 20, "cells": 5 },
-    "doc-cau": { "enabled": true, "min_words": 4, "max_words": 6 },
-    "chon-tu": { "enabled": true, "so_lua_chon": 3 }
+  "asr": {
+    "threshold": 0.45,
+    "margin": 0.12,
+    "max_wrong_before_hint": 2
   },
-  "rewards": { "stars_needed": 3 }
+  "games": {
+    "dem-so": {
+      "enabled": true,
+      "max_number": 20,
+      "cells": 5
+    },
+    "doc-cau": {
+      "enabled": true,
+      "min_words": 4,
+      "max_words": 6,
+      "lang": "vi"
+    },
+    "chon-tu": {
+      "enabled": true,
+      "so_lua_chon": 3
+    }
+  },
+  "rewards": {
+    "stars_needed": 3
+  }
 }

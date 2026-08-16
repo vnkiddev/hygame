@@ -1,0 +1,43 @@
+# Each line: sentence | emoji
+# Short sentences, 3-6 common words. Lines starting with # are skipped.
+
+The cat is sleeping | 🐱
+I like red apples | 🍎
+The dog runs fast | 🐶
+Mum is cooking rice | 🍚
+The sun is hot | 🌞
+I can see a bird | 🐦
+The car is blue | 🚗
+Fish swim in water | 🐟
+I brush my teeth | 🪥
+The moon is bright | 🌙
+Dad reads a book | 📖
+I drink cold milk | 🥛
+The bus is yellow | 🚌
+A frog can jump | 🐸
+Bees make sweet honey | 🐝
+I wash my hands | 🧼
+The tree is tall | 🌳
+Baby is very happy | 😄
+Rain falls on grass | 🌧️
+The duck says quack | 🦆
+I love my family | 🤗
+Stars shine at night | ⭐
+The digger moves sand | 🚜
+Elephants have long noses | 🐘
+I ride my bike | 🚲
+The cake tastes good | 🍰
+Rabbits eat orange carrots | 🐰
+My shoes are new | 👟
+The train goes fast | 🚂
+I draw a house | 🏠
+Cows eat green grass | 🐮
+The ball is round | ⚽
+Birds fly in sky | 🐦
+I count to ten | 🔟
+The flower smells nice | 🌸
+My hat is soft | 🧢
+Ants are very small | 🐜
+I help my mum | 🧹
+The boat is on water | ⛵
+Sleep well little baby | 😴
