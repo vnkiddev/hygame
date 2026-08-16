@@ -2,7 +2,8 @@
 // Đây là nơi duy nhất dựng `ctx` — toàn bộ bề mặt tiếp xúc của game với lõi.
 
 import { $, el, show, sfx, pop, shake, unlockMedia, sleep } from './ui.js';
-import { speak, cancelSpeech } from './speak.js';
+import { speak, cancelSpeech, hasVoice } from './speak.js';
+import { roving, onKey } from './keys.js';
 import * as asr from './asr.js';
 import * as reward from './reward.js';
 import * as session from './session.js';
@@ -12,6 +13,12 @@ let kids = [];
 let games = [];
 let kid = null;
 let current = null;      // { game, cleanup[] }
+
+// Con trỏ D-pad cho hai màn chọn. Màn chơi KHÔNG có con trỏ dùng chung —
+// mỗi game tự lo phím của mình (xem core/keys.js).
+const onScreen = (id) => () => $(id).classList.contains('on');
+const navKids = roving({ enabled: onScreen('pick') });
+const navGames = roving({ enabled: onScreen('games') });
 
 // --- khởi động --------------------------------------------------------------
 async function boot() {
@@ -27,6 +34,14 @@ async function boot() {
   $('backToKids').onclick = () => exitGame(true);
   $('backToKidsPlay').onclick = () => exitGame(true);
   $('backToGames').onclick = () => { exitGame(false); drawGames(); show('games'); };
+
+  // Nút Back của điều khiển tivi: lùi một bậc, đừng để nó thoát cả trang.
+  onKey((k) => {
+    if (k !== 'back' || $('win').classList.contains('on')) return false;
+    if ($('play').classList.contains('on')) { $('backToGames').click(); return true; }
+    if ($('games').classList.contains('on')) { $('backToKids').click(); return true; }
+    return false;
+  });
 }
 
 // Máy chủ là nguồn sự thật, nhưng phải giữ một bản sao để §12.6 chạy được:
@@ -67,6 +82,7 @@ function drawKids() {
     b.onclick = () => chooseKid(k);
     box.appendChild(b);
   });
+  navKids.setItems(box.querySelectorAll('button'));
 }
 
 function chooseKid(k) {
@@ -96,6 +112,7 @@ function drawGames() {
     b.onclick = () => startGame(m);
     box.appendChild(b);
   });
+  navGames.setItems(box.querySelectorAll('button'));
 }
 
 // --- chạy game --------------------------------------------------------------
@@ -118,6 +135,10 @@ async function startGame(manifest) {
   $('playWho').textContent = `${kid.avatar || ''} ${kid.name}`;
   $('status').textContent = '';
   setMic('idle');
+  // Game không khai `needs: ["mic"]` thì giấu nút mic đi — chơi bằng chuột
+  // hoặc điều khiển tivi, để nút mic ở đó chỉ tổ làm bé bấm nhầm.
+  // Vẫn giữ nguyên dòng #status: game nào cũng cần nói chuyện với bé.
+  $('mic').classList.toggle('hidden', !(manifest.needs || ['mic']).includes('mic'));
   show('play');
 
   current = { game, cleanup: [], manifest };
@@ -162,6 +183,13 @@ function makeCtx(manifest, root) {
     },
 
     speak: (text, opt = {}) => speak(text, { rate: opt.rate || rate, ...opt }),
+    // Máy này đọc được tiếng Việt không? Game hỏi để còn bày cách khác cho bé
+    // (Android TV thường có TTS nhưng KHÔNG có giọng Việt). Phải là hàm, vì
+    // danh sách giọng nạp bất đồng bộ, hỏi lúc khởi động thì luôn ra rỗng.
+    speech: {
+      supported: () => !!window.speechSynthesis,
+      vietnamese: () => hasVoice(),
+    },
     status: (t) => { $('status').textContent = t || ''; },
 
     correct(node) { pop(node); sfx.ding(); },
@@ -174,6 +202,20 @@ function makeCtx(manifest, root) {
         return true;
       }
       return false;
+    },
+
+    // Con trỏ D-pad cho game chơi bằng điều khiển tivi (mũi tên + OK).
+    // Lõi tự tắt khi đang chiếu video thưởng hoặc khi bé đã rời màn chơi,
+    // và tự gỡ listener lúc thoát — game không phải nhớ dọn.
+    dpad(opt = {}) {
+      const nav = roving({
+        ...opt,
+        enabled: () => $('play').classList.contains('on')
+          && !$('win').classList.contains('on')
+          && (!opt.enabled || opt.enabled()),
+      });
+      if (current) current.cleanup.push(() => nav.detach());
+      return nav;
     },
 
     log: (type, payload) => session.log(type, payload, { gameId: manifest.id }),

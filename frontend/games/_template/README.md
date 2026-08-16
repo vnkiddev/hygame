@@ -28,6 +28,12 @@ cp -r frontend/games/_template frontend/games/ten-tro-choi
 - `free_text` — chỉ khi thật sự không đoán trước được bé sẽ nói gì. Chậm
   (1.5-3 giây trên máy i3) và cần bật `WHISPER_ENABLED=1` ở máy chủ.
 
+`needs`:
+- `["mic"]` — trò cần bé nói.
+- `[]` — trò chơi bằng tay/điều khiển, lõi giấu nút mic đi. **Bắt buộc** dùng
+  cái này nếu muốn chạy trên Android TV: tivi không cho trình duyệt mở micro.
+  Xem `games/chon-tu/` làm mẫu.
+
 ## 3. Sửa `game.js`
 
 Đổi `id` cho khớp manifest, viết vòng chơi. Bề mặt tiếp xúc với lõi:
@@ -40,6 +46,8 @@ cp -r frontend/games/_template frontend/games/ten-tro-choi
 | `ctx.assetUrl('data/x.txt')` | đường dẫn file trong thư mục game |
 | `await ctx.listen({...})` | nghe một lượt → `{ ok, best, bestProb, margin, ranking, advance, source }` |
 | `await ctx.speak(text, {rate})` | đọc tiếng Việt |
+| `ctx.speech.supported()` / `.vietnamese()` | máy có TTS / có giọng **Việt** không |
+| `ctx.dpad({...})` | con trỏ mũi tên + OK cho điều khiển tivi |
 | `ctx.correct(el)` / `ctx.wrong(el)` | hiệu ứng + tiếng |
 | `await ctx.star()` | cộng 1 sao; đủ sao thì lõi tự chiếu video thưởng, resolve khi bé bấm "Chơi tiếp" |
 | `ctx.status(text)` | dòng chữ dưới nút mic |
@@ -63,6 +71,28 @@ await ctx.listen({
 Thêm ứng viên gần như miễn phí: chi phí nằm ở forward pass, không ở chấm điểm.
 Cứ đưa cả dải số 1..20 vào, đừng đưa mỗi 3 số.
 
+### `ctx.dpad` — chơi bằng điều khiển tivi
+
+```js
+const nav = ctx.dpad({
+  axis: 'x',                       // 'x' | 'y' | 'both'
+  enabled: () => !dangKhen,        // lúc đang khen thì khoá phím lại
+  onKey: (k) => {                  // chặn trước; trả true = đã xử lý xong
+    if (k === 'up') { docLaiDe(); return true; }
+    return false;
+  },
+});
+nav.setItems(cacNut);              // gọi lại sau MỖI lần vẽ lại
+nav.select(2);                     // dời con trỏ bằng tay
+```
+
+Mũi tên để đi, OK để bấm (mặc định gọi `el.click()`), nút `disabled` tự bị bỏ
+qua. Lõi tự tắt con trỏ khi đang chiếu video thưởng và tự gỡ khi bé thoát.
+Phím `Back` luôn thuộc về vỏ ứng dụng, game đừng giành.
+
+Ô đang trỏ tới được gắn class `.sel` — **tô viền bằng class đó**, đừng chỉ dựa
+vào `:focus-visible`, trình duyệt trên tivi đời cũ không có.
+
 **Đừng bao giờ** tự gọi `getUserMedia`, `SpeechRecognition` hay `fetch`
 trong game. Cần gì mà lõi chưa có thì thêm vào `core/`, đừng lách.
 
@@ -71,7 +101,7 @@ trong game. Cần gì mà lõi chưa có thì thêm vào `core/`, đừng lách.
 Thêm id vào `frontend/games/index.json`:
 
 ```json
-["dem-so", "doc-cau", "ten-tro-choi"]
+["dem-so", "doc-cau", "chon-tu", "ten-tro-choi"]
 ```
 
 Tải lại trang là thấy. Muốn bật/tắt cho từng bé thì vào trang quản trị,

@@ -253,7 +253,9 @@ print(f"     độ trễ HTTP: p50={lat[50]:.0f}ms p95={lat[95]:.0f}ms max={lat[
 # --- 10. trang tĩnh ---------------------------------------------------------
 for path in ("/app/index.html", "/app/admin.html", "/app/core/app.js",
              "/app/games/index.json", "/app/games/dem-so/game.js",
-             "/app/games/doc-cau/data/cau.txt", "/app/games/_template/game.js"):
+             "/app/games/doc-cau/data/cau.txt", "/app/games/chon-tu/game.js",
+             "/app/games/chon-tu/data/tu.txt", "/app/core/keys.js",
+             "/app/games/_template/game.js"):
     try:
         with urllib.request.urlopen(BASE + path, timeout=10) as resp:
             ok = resp.status == 200 and len(resp.read()) > 10

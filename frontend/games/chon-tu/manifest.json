@@ -1,0 +1,10 @@
+{
+  "id": "chon-tu",
+  "title": "Chọn từ",
+  "icon": "🔤",
+  "description": "Nghe rồi chọn đúng từ — chơi được bằng điều khiển tivi",
+  "min_age": 2,
+  "needs": [],
+  "asr_mode": "none",
+  "style": true
+}

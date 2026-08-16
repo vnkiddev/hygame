@@ -257,6 +257,7 @@ def create_kid(kid_id: str, name: str, avatar: str = "🚜", age: int = 4) -> di
     prof["games"] = {
         "dem-so": {"enabled": True, "max_number": 20, "cells": 5},
         "doc-cau": {"enabled": True, "min_words": 4, "max_words": 6},
+        "chon-tu": {"enabled": True, "so_lua_chon": 2},
     }
     return save(kid_id, prof)
 

@@ -209,6 +209,7 @@ function drawGames(c, kid) {
   const known = {
     'dem-so': [['max_number', 'Đếm tới số', 20], ['cells', 'Số ô mỗi lượt', 5]],
     'doc-cau': [['min_words', 'Câu ngắn nhất (chữ)', 4], ['max_words', 'Câu dài nhất (chữ)', 6]],
+    'chon-tu': [['so_lua_chon', 'Số từ mỗi lượt (2-3)', 2]],
   };
   const cfgs = kid.games || {};
   const ids = Array.from(new Set([...Object.keys(known), ...Object.keys(cfgs)]));

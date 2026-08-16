@@ -1,0 +1,19 @@
+# Câu tập đọc — mỗi dòng: câu|emoji
+# Số chữ mỗi câu lọc theo min_words/max_words trong hồ sơ bé.
+# Sửa file này là xong, không phải khởi động lại máy chủ.
+
+Con mèo đang ngủ|🐱
+Bố lái xe đi làm|🚗
+Mẹ nấu cơm rất ngon|🍚
+Bé ăn quả chuối vàng|🍌
+Con chó chạy ra sân|🐶
+Máy xúc xúc cát|🚜
+Trời mưa to quá|🌧️
+Bé thích uống sữa|🥛
+Mặt trời mọc rồi|🌞
+Con voi có vòi dài|🐘
+Con gà gáy ò ó o|🐓
+Bé đi học rất vui|🎒
+Ông trồng cây trong vườn|🌳
+Chị đọc sách cho bé|📚
+Con cá bơi trong ao|🐟

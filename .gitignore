@@ -6,7 +6,9 @@ kids/_default/rewards/*
 !kids/_default/rewards/.gitkeep
 models/*
 !models/.gitkeep
-data/
+# Chỉ thư mục data/ Ở GỐC (app.db + clip audio). KHÔNG viết "data/" trơn:
+# nó nuốt luôn frontend/games/*/data/ — kho từ, kho câu của game đều mất.
+/data/
 
 # Python
 __pycache__/

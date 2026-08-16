@@ -41,6 +41,10 @@ h1 small{display:block;font-size:.42em;font-weight:500;opacity:.6;margin-top:.4e
   transition:transform .12s;display:flex;flex-direction:column;align-items:center;gap:.15em;
 }
 .tile:active{transform:translateY(4px);border-bottom-width:2px}
+/* Ô đang chọn bằng điều khiển tivi. Dùng cả class .sel lẫn :focus-visible —
+   trình duyệt trên TV đời cũ chưa có :focus-visible, chỉ class mới ăn. */
+.tile.sel,.tile:focus-visible{outline:none;transform:translateY(-4px);
+  box-shadow:0 0 0 6px rgba(43,42,40,.3),0 10px 18px rgba(43,42,40,.2)}
 .tile .emoji{font-size:1.5em;line-height:1}
 .tile .sub{font-size:.42em;font-weight:500;opacity:.7}
 .tile[disabled]{opacity:.35;pointer-events:none}
@@ -54,6 +58,8 @@ h1 small{display:block;font-size:.42em;font-weight:500;opacity:.6;margin-top:.4e
   background:rgba(43,42,40,.07);border:0;border-radius:999px;padding:.55em 1.1em;
   min-height:var(--tap);cursor:pointer;color:inherit}
 .ghost:active{background:rgba(43,42,40,.16)}
+.ghost.sel,.ghost:focus-visible{outline:none;background:rgba(43,42,40,.16);
+  box-shadow:0 0 0 4px rgba(43,42,40,.3)}
 
 /* --- sao --- */
 .stars{font-size:clamp(22px,4vw,34px);letter-spacing:.1em;white-space:nowrap}
@@ -73,6 +79,8 @@ h1 small{display:block;font-size:.42em;font-weight:500;opacity:.6;margin-top:.4e
 @keyframes breathe{0%,100%{box-shadow:0 0 0 0 rgba(126,191,74,.55)}50%{box-shadow:0 0 0 22px rgba(126,191,74,0)}}
 .status{font-size:clamp(14px,2.5vw,19px);font-weight:600;min-height:1.5em;opacity:.7;
   text-align:center;padding:0 12px}
+
+.hidden{display:none!important}
 
 /* --- hiệu ứng dùng chung --- */
 @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
@@ -94,6 +102,7 @@ h1 small{display:block;font-size:.42em;font-weight:500;opacity:.6;margin-top:.4e
   padding:.6em 1.6em;min-height:var(--tap);cursor:pointer;
   opacity:0;pointer-events:none;transition:opacity .4s}
 .again.show{opacity:1;pointer-events:auto}
+.again:focus-visible{outline:none;box-shadow:0 0 0 6px rgba(255,255,255,.55)}
 .no-video{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   font-size:clamp(60px,20vw,200px);
   background:repeating-linear-gradient(-45deg,var(--yellow) 0 40px,var(--asphalt) 40px 80px)}
