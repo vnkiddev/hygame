@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Đập chuột chũi</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔨</text></svg>">
+<link rel="stylesheet" href="../lib/style.css">
+</head>
+<body>
+<canvas id="stage"></canvas>
+
+<div class="hud">
+  <a class="ghost" href="../">← Trang chủ</a>
+  <button class="ghost" id="stopBtn" style="display:none">⏹ Dừng</button>
+</div>
+<div class="mode" id="mode"></div>
+
+<section class="overlay on" id="menu">
+  <h1>🔨 Đập chuột chũi<small>Chuột chũi thò lên thì giơ tay đập thật nhanh!</small></h1>
+  <p class="loading" id="loading">Đang chuẩn bị…</p>
+  <div class="row" id="pickPlayers" style="display:none">
+    <button class="big" data-n="1"><span class="emoji">🙋</span><span>1 người</span></button>
+    <button class="big" data-n="2"><span class="emoji">🙋🙋‍♂️</span><span>2 người</span><span class="sub">xanh bên trái · đỏ bên phải</span></button>
+  </div>
+  <p>Đứng lùi lại để camera thấy được hai tay. Chuột vàng ✨ được 3 điểm!</p>
+</section>
+
+<section class="overlay" id="end">
+  <h1 id="endTitle">Hết giờ!</h1>
+  <p id="endText" style="font-size:clamp(22px,4vw,40px);font-weight:700"></p>
+  <div class="row">
+    <button class="big" id="again"><span class="emoji">🔁</span><span>Chơi lại</span></button>
+    <button class="big blue" id="change"><span class="emoji">👥</span><span>Đổi số người</span></button>
+  </div>
+</section>
+
+<script type="module">
+import { createStage } from '../lib/stage.js';
+import { sfx, say, Particles, unlockAudio, sleep } from '../lib/fx.js';
+
+const $ = (id) => document.getElementById(id);
+const ROUND_MS = 60000;
+
+const stage = await createStage($('stage'), { people: 2, onStatus: (t) => { $('loading').textContent = t; } });
+const ctx = stage.ctx;
+$('mode').textContent = stage.modeLabel();
+$('loading').textContent = stage.mode === 'mouse'
+  ? 'Máy này không mở được camera — dùng chuột hoặc ngón tay để thử nhé.'
+  : 'Sẵn sàng! Chọn số người chơi:';
+$('pickPlayers').style.display = '';
+
+const fx = new Particles();
+
+// --- bố cục lỗ ---------------------------------------------------------------
+// Toạ độ tương đối trong vùng của mỗi người. Chừa giữa-dưới ra: đó là chỗ
+// thân bé đứng, để lỗ ở đó thì đứng yên cũng "đập" trúng.
+const LAYOUT_1P = [[.1, .32], [.28, .14], [.5, .1], [.72, .14], [.9, .32], [.1, .64], [.9, .64]];
+const LAYOUT_2P = [[.14, .32], [.5, .12], [.86, .32], [.12, .64], [.88, .64]];
+const COLORS = [
+  { main: '#3D8BFD', dark: '#1F5FC4', name: 'Bạn xanh' },
+  { main: '#E8476A', dark: '#A8203F', name: 'Bạn đỏ' },
+];
+
+let players = 1;
+let regions = [];
+let state = 'menu';       // menu | count | play | end
+let t0 = 0;
+let countText = '';
+
+function buildRegions() {
+  const { W, H } = stage;
+  const n = players;
+  const r = Math.min(W / n, H) * (n === 1 ? 0.075 : 0.085);
+  regions = [];
+  for (let i = 0; i < n; i++) {
+    const x0 = (W / n) * i, w = W / n;
+    const layout = n === 1 ? LAYOUT_1P : LAYOUT_2P;
+    regions.push({
+      x0, w, score: 0, color: n === 1 ? null : COLORS[i],
+      nextSpawn: 0,
+      holes: layout.map(([rx, ry]) => ({
+        x: x0 + rx * w, y: H * 0.1 + ry * H, r, mole: null,
+      })),
+    });
+  }
+}
+window.addEventListener('resize', () => { if (state !== 'menu') buildRegions(); });
+
+// --- vòng chơi ---------------------------------------------------------------
+async function start(n) {
+  unlockAudio();
+  players = n;
+  buildRegions();
+  $('menu').classList.remove('on');
+  $('end').classList.remove('on');
+  $('stopBtn').style.display = '';
+  state = 'count';
+  for (const s of ['3', '2', '1']) {
+    countText = s; sfx.beep(false); say(s === '3' ? 'Ba' : s === '2' ? 'Hai' : 'Một');
+    await sleep(900);
+    if (state !== 'count') return;
+  }
+  countText = 'Đập!'; sfx.beep(true); say('Đập!');
+  state = 'play';
+  t0 = performance.now();
+  regions.forEach((rg) => { rg.nextSpawn = t0 + 300; });
+  setTimeout(() => { countText = ''; }, 700);
+}
+
+function finish() {
+  state = 'end';
+  $('stopBtn').style.display = 'none';
+  sfx.fanfare();
+  let title = 'Hết giờ!', text, speech;
+  if (players === 1) {
+    const s = regions[0].score;
+    text = `Con đập được ${s} con chuột chũi! ${s >= 30 ? '🏆' : s >= 15 ? '🌟' : '👏'}`;
+    speech = `Hết giờ! Con đập được ${s} con chuột chũi. Giỏi quá!`;
+  } else {
+    const [a, b] = regions.map((r) => r.score);
+    text = `🔵 ${a}  —  ${b} 🔴`;
+    if (a === b) { title = 'Hoà nhau! 🤝'; speech = 'Hai bạn hoà nhau. Giỏi cả hai!'; }
+    else {
+      const w = a > b ? 0 : 1;
+      title = `${COLORS[w].name} thắng! 🏆`;
+      speech = `Hết giờ! ${COLORS[w].name} thắng!`;
+    }
+  }
+  $('endTitle').textContent = title;
+  $('endText').textContent = text;
+  say(speech);
+  $('end').classList.add('on');
+  for (let i = 0; i < 6; i++) {
+    setTimeout(() => fx.burst(Math.random() * stage.W, Math.random() * stage.H * 0.6,
+      { n: 30, colors: ['#FFD45E', '#E8476A', '#3D8BFD', '#7EBF4A', '#fff'], speed: 9 }), i * 250);
+  }
+}
+
+function goMenu() {
+  state = 'menu';
+  regions = [];
+  $('end').classList.remove('on');
+  $('stopBtn').style.display = 'none';
+  $('menu').classList.add('on');
+}
+
+document.querySelectorAll('#pickPlayers button').forEach((b) => {
+  b.onclick = () => start(+b.dataset.n);
+});
+$('again').onclick = () => start(players);
+$('change').onclick = goMenu;
+$('stopBtn').onclick = goMenu;
+
+// --- chuột chũi --------------------------------------------------------------
+const RISE = 180, HIT_ANIM = 420, HIDE = 160;
+
+function spawn(rg, now, progress) {
+  const free = rg.holes.filter((h) => !h.mole);
+  const up = rg.holes.length - free.length;
+  const maxUp = progress < 0.4 ? 1 : 2;
+  if (!free.length || up >= maxUp) return;
+  const h = free[Math.floor(Math.random() * free.length)];
+  const stay = 1900 - progress * 900;            // càng về cuối càng nhanh
+  h.mole = { born: now, until: now + RISE + stay, gold: Math.random() < 0.1, hitAt: 0, hideAt: 0 };
+  sfx.pop();
+  rg.nextSpawn = now + 350 + Math.random() * (700 - progress * 350);
+}
+
+function moleUp(m, now) {           // 0 = trong hang, 1 = thò hết lên
+  if (m.hitAt) return 1;
+  if (m.hideAt) return Math.max(0, 1 - (now - m.hideAt) / HIDE);
+  return Math.min(1, (now - m.born) / RISE);
+}
+
+function hitTest(h, hands) {
+  if (stage.mode === 'motion') return stage.motionAt(h.x, h.y, h.r) > 0.2;
+  const rr = h.r * 1.25;
+  return hands.some((p) => (p.x - h.x) ** 2 + (p.y - h.y) ** 2 < rr * rr);
+}
+
+function whack(rg, h, now) {
+  const m = h.mole;
+  m.hitAt = now;
+  const pts = m.gold ? 3 : 1;
+  rg.score += pts;
+  if (m.gold) sfx.gold(); else sfx.whack();
+  fx.burst(h.x, h.y - h.r * 0.4, { n: m.gold ? 26 : 14, colors: m.gold ? ['#FFD45E', '#fff', '#F5B21E'] : ['#FFD45E', '#fff', '#C99A6B'], speed: 7 });
+  const words = ['BỐP!', 'CỐC!', 'BỤP!', 'Trúng!'];
+  fx.text(h.x, h.y - h.r * 1.4, m.gold ? '+3 ✨' : words[Math.floor(Math.random() * words.length)],
+    m.gold ? '#FFD45E' : '#fff', h.r * 0.75);
+}
+
+// --- vẽ ----------------------------------------------------------------------
+function drawHoleBack(h) {
+  const hy = h.y + h.r * 0.5;
+  ctx.fillStyle = 'rgba(40,24,10,.85)';
+  ctx.beginPath(); ctx.ellipse(h.x, hy, h.r * 1.05, h.r * 0.34, 0, 0, Math.PI * 2); ctx.fill();
+}
+function drawHoleFront(h) {
+  const hy = h.y + h.r * 0.5;
+  ctx.fillStyle = '#7A4E25';
+  ctx.beginPath(); ctx.ellipse(h.x, hy, h.r * 1.2, h.r * 0.42, 0, 0, Math.PI); ctx.fill();
+  ctx.fillStyle = '#9B6A38';
+  ctx.beginPath(); ctx.ellipse(h.x, hy + h.r * 0.02, h.r * 1.05, h.r * 0.22, 0, 0, Math.PI); ctx.fill();
+}
+
+function drawMole(h, now) {
+  const m = h.mole;
+  const t = moleUp(m, now);
+  if (t <= 0) return;
+  const { x, r } = h;
+  const hy = h.y + h.r * 0.5;
+  const squash = m.hitAt ? 1 - 0.3 * Math.min(1, (now - m.hitAt) / 120) : 1;
+  const cy = hy + r * 0.9 - t * r * 1.5 + (1 - squash) * r * 0.9;
+
+  ctx.save();
+  ctx.beginPath(); ctx.rect(x - r * 2, h.y - r * 3, r * 4, hy - (h.y - r * 3)); ctx.clip();
+  // thân
+  ctx.fillStyle = m.gold ? '#F5B21E' : '#8A5A2B';
+  ctx.beginPath();
+  ctx.ellipse(x, cy, r * 0.72, r * 0.82 * squash, 0, Math.PI, 0);
+  ctx.lineTo(x + r * 0.72, cy + r * 2); ctx.lineTo(x - r * 0.72, cy + r * 2); ctx.closePath();
+  ctx.fill();
+  // bụng
+  ctx.fillStyle = m.gold ? '#FFE9A3' : '#C99A6B';
+  ctx.beginPath(); ctx.ellipse(x, cy + r * 0.55, r * 0.45, r * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+  // mắt
+  const ey = cy - r * 0.28 * squash;
+  ctx.strokeStyle = '#2B2A28'; ctx.fillStyle = '#2B2A28'; ctx.lineWidth = r * 0.07; ctx.lineCap = 'round';
+  for (const s of [-1, 1]) {
+    const ex = x + s * r * 0.27;
+    if (m.hitAt) {        // mắt chữ X
+      const d = r * 0.09;
+      ctx.beginPath(); ctx.moveTo(ex - d, ey - d); ctx.lineTo(ex + d, ey + d);
+      ctx.moveTo(ex + d, ey - d); ctx.lineTo(ex - d, ey + d); ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.arc(ex, ey, r * 0.1, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(ex + r * 0.03, ey - r * 0.03, r * 0.035, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#2B2A28';
+    }
+  }
+  // má hồng
+  ctx.fillStyle = 'rgba(255,120,140,.45)';
+  for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(x + s * r * 0.45, cy - r * 0.02, r * 0.12, r * 0.07, 0, 0, Math.PI * 2); ctx.fill(); }
+  // mũi + răng
+  ctx.fillStyle = '#F07A93';
+  ctx.beginPath(); ctx.ellipse(x, cy - r * 0.04, r * 0.17, r * 0.12, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(x - r * 0.1, cy + r * 0.09, r * 0.09, r * 0.13);
+  ctx.fillRect(x + r * 0.01, cy + r * 0.09, r * 0.09, r * 0.13);
+  // ngôi sao quay quanh đầu khi bị đập
+  if (m.hitAt) {
+    ctx.font = `${r * 0.35}px system-ui`; ctx.textAlign = 'center';
+    for (let i = 0; i < 3; i++) {
+      const a = now / 180 + i * 2.1;
+      ctx.fillText('⭐', x + Math.cos(a) * r * 0.6, cy - r * 0.95 + Math.sin(a) * r * 0.15);
+    }
+  }
+  if (m.gold && !m.hitAt) {
+    ctx.font = `${r * 0.4}px system-ui`; ctx.textAlign = 'center';
+    ctx.fillText('✨', x + r * 0.7, cy - r * 0.7 + Math.sin(now / 120) * r * 0.08);
+  }
+  ctx.restore();
+}
+
+function drawHammer(p, color) {
+  const r = (regions[0] && regions[0].holes[0].r) || 60;
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.beginPath(); ctx.arc(0, 0, r * 0.55, 0, Math.PI * 2);
+  ctx.fillStyle = color ? color + '55' : 'rgba(255,255,255,.3)'; ctx.fill();
+  ctx.lineWidth = 4; ctx.strokeStyle = color || '#fff'; ctx.stroke();
+  ctx.rotate(-0.5);
+  ctx.font = `${r * 0.9}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('🔨', 0, 0);
+  ctx.restore();
+}
+
+function label(text, x, y, size, color = '#fff', align = 'center') {
+  ctx.font = `800 ${size}px 'Baloo 2', system-ui, sans-serif`;
+  ctx.textAlign = align; ctx.textBaseline = 'middle';
+  ctx.lineWidth = size / 6; ctx.strokeStyle = '#2B2A28'; ctx.lineJoin = 'round';
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = color; ctx.fillText(text, x, y);
+}
+
+function frame(now) {
+  const people = stage.update();
+  stage.drawVideo(0.12);
+  const { W, H } = stage;
+  const hands = people.flatMap((p) => p.hands);
+  const playing = state === 'play';
+  const progress = playing ? Math.min(1, (now - t0) / ROUND_MS) : 0;
+
+  // vạch chia đôi sân khi chơi 2 người
+  if (regions.length === 2) {
+    ctx.fillStyle = 'rgba(61,139,253,.10)'; ctx.fillRect(0, 0, W / 2, H);
+    ctx.fillStyle = 'rgba(232,71,106,.10)'; ctx.fillRect(W / 2, 0, W / 2, H);
+    ctx.setLineDash([18, 14]); ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(255,255,255,.8)';
+    ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H); ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  for (const rg of regions) {
+    if (playing && now >= rg.nextSpawn) spawn(rg, now, progress);
+    for (const h of rg.holes) {
+      const m = h.mole;
+      if (m) {
+        if (playing && !m.hitAt && !m.hideAt && now - m.born > 120 && hitTest(h, hands)) whack(rg, h, now);
+        if (m.hitAt && now - m.hitAt > HIT_ANIM) h.mole = null;
+        else if (!m.hitAt && !m.hideAt && now > m.until) m.hideAt = now;
+        else if (m.hideAt && now - m.hideAt > HIDE) h.mole = null;
+        if (!playing && h.mole && !h.mole.hitAt && !h.mole.hideAt) h.mole.hideAt = now;
+      }
+      drawHoleBack(h);
+      if (h.mole) drawMole(h, now);
+      drawHoleFront(h);
+    }
+  }
+
+  // điểm + đồng hồ
+  if (regions.length) {
+    const sz = Math.min(W, H) * 0.08;
+    if (regions.length === 1) label(`🐹 ${regions[0].score}`, W * 0.5, H - sz * 0.9, sz);
+    else {
+      label(`🔵 ${regions[0].score}`, W * 0.25, H - sz * 0.9, sz, '#BFD8FF');
+      label(`${regions[1].score} 🔴`, W * 0.75, H - sz * 0.9, sz, '#FFC4D1');
+    }
+    if (playing || state === 'end') {
+      const left = Math.max(0, Math.ceil((ROUND_MS - (now - t0)) / 1000));
+      label(`⏱ ${state === 'end' ? 0 : left}`, W / 2, sz * 0.95, sz * 0.8, left <= 10 && playing ? '#FFD45E' : '#fff');
+      if (playing && left <= 0) finish();
+    }
+  }
+
+  // búa ở tay (tô màu theo nửa sân tay đang đứng)
+  if (state !== 'menu') {
+    for (const p of hands) {
+      const rg = regions.length === 2 ? regions[p.x < W / 2 ? 0 : 1] : null;
+      drawHammer(p, rg ? rg.color.main : null);
+    }
+  }
+
+  fx.draw(ctx);
+  if (countText) label(countText, W / 2, H / 2, Math.min(W, H) * 0.25, '#FFD45E');
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

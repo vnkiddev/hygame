@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Sàn là dung nham</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌋</text></svg>">
+<link rel="stylesheet" href="../lib/style.css">
+<style>.big.lava{background:var(--rust);border-bottom-color:var(--rust-dk);color:#fff}</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+
+<div class="hud">
+  <a class="ghost" href="../">← Trang chủ</a>
+  <button class="ghost" id="stopBtn" style="display:none">⏹ Dừng</button>
+</div>
+<div class="mode" id="mode"></div>
+
+<section class="overlay on" id="menu">
+  <h1>🌋 Sàn là dung nham!<small>Ô nào nóng lên đỏ rực thì chạy sang ô khác ngay!</small></h1>
+  <p class="loading" id="loading">Đang chuẩn bị…</p>
+  <div class="row" id="pickLevel" style="display:none">
+    <button class="big" data-hard="0"><span class="emoji">🔥</span><span>Bắt đầu</span><span class="sub">mỗi lần 1 ô cháy</span></button>
+    <button class="big lava" data-hard="1"><span class="emoji">🔥🔥</span><span>Siêu khó</span><span class="sub">có lúc 2 ô cùng cháy</span></button>
+  </div>
+  <p>Màn hình chia 4 ô. Mỗi lượt một ô nóng dần rồi bốc lửa 4 giây. Không ai bị bỏng thì được 1 sao ⭐</p>
+</section>
+
+<section class="overlay" id="end">
+  <h1 id="endTitle">Xong rồi!</h1>
+  <p id="endText" style="font-size:clamp(26px,5vw,52px);font-weight:700"></p>
+  <div class="row">
+    <button class="big" id="again"><span class="emoji">🔁</span><span>Chơi lại</span></button>
+    <button class="big lava" id="toMenu"><span class="emoji">⚙️</span><span>Đổi mức</span></button>
+  </div>
+</section>
+
+<script type="module">
+import { createStage } from '../lib/stage.js';
+import { sfx, say, Particles, unlockAudio, sleep } from '../lib/fx.js';
+
+const $ = (id) => document.getElementById(id);
+const COLS = 4;
+const ROUNDS = 10;
+const BURN_MS = 4000;            // bốc lửa 4 giây — đúng như luật chơi
+const COOL_MS = 1400;
+
+const stage = await createStage($('stage'), { people: 4, onStatus: (t) => { $('loading').textContent = t; } });
+const ctx = stage.ctx;
+$('mode').textContent = stage.modeLabel();
+$('loading').textContent = stage.mode === 'mouse'
+  ? 'Máy này không mở được camera — di chuột/ngón tay để thử nhé.'
+  : 'Mọi người đứng vào khung hình rồi bấm Bắt đầu!';
+$('pickLevel').style.display = '';
+
+const fx = new Particles();
+const flames = [];
+
+let state = 'menu';        // menu | count | play | end
+let hard = false;
+let round = 0, stars = 0;
+let phase = null;          // { kind: 'heat'|'burn'|'cool', cols:[], t, dur, burned }
+let lastCols = [];
+let countText = '';
+let banner = null;         // { text, color, until }
+let lastSizzle = 0;
+
+const colW = () => stage.W / COLS;
+const colOf = (x) => Math.max(0, Math.min(COLS - 1, Math.floor(x / colW())));
+
+// --- vòng chơi ---------------------------------------------------------------
+async function start(h) {
+  unlockAudio();
+  hard = h;
+  round = 0; stars = 0; phase = null; lastCols = [];
+  $('menu').classList.remove('on');
+  $('end').classList.remove('on');
+  $('stopBtn').style.display = '';
+  state = 'count';
+  for (const s of ['3', '2', '1']) {
+    countText = s; sfx.beep(false); say(s === '3' ? 'Ba' : s === '2' ? 'Hai' : 'Một');
+    await sleep(900);
+    if (state !== 'count') return;
+  }
+  countText = 'Chạy!'; sfx.beep(true); say('Bắt đầu!');
+  setTimeout(() => { countText = ''; }, 700);
+  state = 'play';
+  nextRound(performance.now());
+}
+
+function nextRound(now) {
+  round++;
+  if (round > ROUNDS) return finish();
+  // Chọn ô mới, tránh trùng lượt trước để bé phải chạy thật
+  const pool = [...Array(COLS).keys()].filter((c) => !lastCols.includes(c));
+  const two = hard && round >= 3 && Math.random() < 0.5;
+  const cols = [];
+  while (cols.length < (two ? 2 : 1)) {
+    const c = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
+    if (c === undefined) break;
+    cols.push(c);
+  }
+  lastCols = cols;
+  // Nóng dần: lượt đầu 3.5 giây cảnh báo, càng về sau càng nhanh (tối thiểu 1.6 giây)
+  const heat = Math.max(1600, 3600 - (round - 1) * 220);
+  phase = { kind: 'heat', cols, t: now, dur: heat, burned: false, lastTick: 0 };
+  const lines = ['Nóng lên rồi! Chạy đi!', 'Dung nham đến! Chạy mau!', 'Ối nóng! Chạy sang ô khác!'];
+  say(lines[Math.floor(Math.random() * lines.length)], 1.1);
+}
+
+function finish() {
+  state = 'end';
+  phase = null;
+  $('stopBtn').style.display = 'none';
+  sfx.fanfare();
+  $('endTitle').textContent = stars >= ROUNDS - 1 ? 'Siêu nhanh! 🏆' : stars >= ROUNDS / 2 ? 'Giỏi lắm! 🌟' : 'Cố lên nhé! 💪';
+  $('endText').textContent = `${'⭐'.repeat(stars)}${'·'.repeat(ROUNDS - stars)}  ${stars}/${ROUNDS}`;
+  say(`Xong rồi! Được ${stars} sao.`);
+  $('end').classList.add('on');
+  for (let i = 0; i < 6; i++) {
+    setTimeout(() => fx.burst(Math.random() * stage.W, Math.random() * stage.H * 0.6,
+      { n: 30, colors: ['#FFD45E', '#E0632A', '#7EBF4A', '#fff'], speed: 9 }), i * 250);
+  }
+}
+
+function goMenu() {
+  state = 'menu'; phase = null;
+  $('end').classList.remove('on');
+  $('stopBtn').style.display = 'none';
+  $('menu').classList.add('on');
+}
+document.querySelectorAll('#pickLevel button').forEach((b) => { b.onclick = () => start(b.dataset.hard === '1'); });
+$('again').onclick = () => start(hard);
+$('toMenu').onclick = goMenu;
+$('stopBtn').onclick = goMenu;
+
+function step(now, people) {
+  if (state !== 'play' || !phase) return;
+  const p = (now - phase.t) / phase.dur;
+
+  if (phase.kind === 'heat') {
+    // tiếng tích tắc dày dần
+    const gap = 420 - p * 330;
+    if (now - phase.lastTick > gap) { phase.lastTick = now; sfx.heat(p); }
+    if (p >= 1) {
+      phase = { ...phase, kind: 'burn', t: now, dur: BURN_MS };
+      sfx.whoosh();
+    }
+  } else if (phase.kind === 'burn') {
+    // Ai đang đứng trong ô cháy?
+    const victims = whoIsIn(phase.cols, people);
+    if (victims.length) {
+      phase.burned = true;
+      if (now - lastSizzle > 700) {
+        lastSizzle = now;
+        sfx.sizzle();
+        for (const v of victims) {
+          fx.text(v.x, v.y - 40, 'Á nóng! 🥵', '#FFD45E', Math.min(stage.W, stage.H) * 0.06);
+          fx.burst(v.x, v.y, { n: 10, colors: ['#FF3D00', '#FFB300', '#FFE082'], speed: 6 });
+        }
+      }
+    }
+    if (p >= 1) {
+      phase = { ...phase, kind: 'cool', t: now, dur: COOL_MS };
+      if (!phase.burned) {
+        stars++;
+        sfx.safe();
+        banner = { text: 'An toàn! +1 ⭐', color: '#C7F59B', until: now + 1200 };
+        if (Math.random() < 0.4) say('Giỏi quá!');
+      } else {
+        banner = { text: 'Ối, bị bỏng rồi! 🔥', color: '#FFD45E', until: now + 1200 };
+      }
+    }
+  } else if (phase.kind === 'cool' && p >= 1) {
+    nextRound(now);
+  }
+}
+
+/** Trả về các điểm (thân người) đang đứng trong những ô cho trước. */
+function whoIsIn(cols, people) {
+  if (stage.mode === 'motion') {
+    // Không có bộ nhận dáng: coi "ô có cử động đáng kể" là có người
+    const out = [];
+    for (const c of cols) {
+      const x0 = c * colW();
+      if (stage.motionRect(x0 + 8, stage.H * 0.15, x0 + colW() - 8, stage.H) > 0.04) {
+        out.push({ x: x0 + colW() / 2, y: stage.H * 0.5 });
+      }
+    }
+    return out;
+  }
+  return people.map((pp) => pp.body).filter((b) => cols.includes(colOf(b.x)));
+}
+
+// --- vẽ ----------------------------------------------------------------------
+function label(text, x, y, size, color = '#fff') {
+  ctx.font = `800 ${size}px 'Baloo 2', system-ui, sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.lineWidth = size / 6; ctx.strokeStyle = '#2B2A28'; ctx.lineJoin = 'round';
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = color; ctx.fillText(text, x, y);
+}
+
+function drawFloor(now) {
+  const { W, H } = stage;
+  const w = colW();
+  for (let c = 0; c < COLS; c++) {
+    const x = c * w;
+    ctx.fillStyle = c % 2 ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.04)';
+    ctx.fillRect(x, 0, w, H);
+    if (c) {
+      ctx.setLineDash([16, 12]); ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,255,255,.7)';
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+  if (!phase) return;
+  const p = Math.min(1, (now - phase.t) / phase.dur);
+  for (const c of phase.cols) {
+    const x = c * w;
+    if (phase.kind === 'heat') {
+      // vàng -> cam -> đỏ, nhấp nháy nhanh dần
+      const blink = 0.5 + 0.5 * Math.sin(now / (160 - p * 110));
+      const a = 0.15 + p * 0.45 + blink * 0.12 * p;
+      const g = ctx.createLinearGradient(0, H, 0, H * (0.6 - p * 0.6));
+      g.addColorStop(0, `rgba(255,${Math.round(180 - p * 150)},0,${a})`);
+      g.addColorStop(1, 'rgba(255,200,0,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(x, 0, w, H);
+      // sóng nhiệt
+      ctx.strokeStyle = `rgba(255,240,200,${0.25 + p * 0.4})`; ctx.lineWidth = 3;
+      for (let i = 0; i < 3; i++) {
+        const yy = H - ((now / (12 - p * 6) + i * H / 3) % H);
+        ctx.beginPath();
+        for (let xx = 0; xx <= w; xx += 10) ctx.lineTo(x + xx, yy + Math.sin(xx / 18 + now / 120) * 6);
+        ctx.stroke();
+      }
+      label('⚠️', x + w / 2, H * 0.18, Math.min(w, H) * (0.18 + p * 0.1));
+    } else if (phase.kind === 'burn' || phase.kind === 'cool') {
+      const fade = phase.kind === 'cool' ? 1 - p : 1;
+      const g = ctx.createLinearGradient(0, H, 0, 0);
+      g.addColorStop(0, `rgba(255,60,0,${0.85 * fade})`);
+      g.addColorStop(0.5, `rgba(255,120,0,${0.6 * fade})`);
+      g.addColorStop(1, `rgba(255,190,0,${0.35 * fade})`);
+      ctx.fillStyle = g;
+      ctx.fillRect(x, 0, w, H);
+      // bong bóng dung nham
+      ctx.fillStyle = `rgba(255,230,120,${0.6 * fade})`;
+      for (let i = 0; i < 6; i++) {
+        const bx = x + ((i * 97 + 31) % w);
+        const by = H - ((now / 4 + i * 137) % (H * 0.5));
+        ctx.beginPath(); ctx.arc(bx, by, 6 + (i % 3) * 5, 0, Math.PI * 2); ctx.fill();
+      }
+      if (phase.kind === 'burn') {
+        for (let i = 0; i < 2; i++) {
+          flames.push({ x: x + Math.random() * w, y: H + 10, vy: -(4 + Math.random() * 6), r: 18 + Math.random() * 30, life: 1 });
+        }
+        const left = Math.ceil((BURN_MS - (now - phase.t)) / 1000);
+        label(`🔥 ${left}`, x + w / 2, H * 0.18, Math.min(w, H) * 0.2, '#FFE082');
+      }
+    }
+  }
+}
+
+function drawFlames() {
+  for (let i = flames.length - 1; i >= 0; i--) {
+    const f = flames[i];
+    f.y += f.vy; f.x += Math.sin(f.y / 30) * 1.5; f.life -= 0.018; f.r *= 0.985;
+    if (f.life <= 0) { flames.splice(i, 1); continue; }
+    const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.r);
+    g.addColorStop(0, `rgba(255,240,150,${f.life})`);
+    g.addColorStop(0.5, `rgba(255,120,0,${f.life * 0.8})`);
+    g.addColorStop(1, 'rgba(255,40,0,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+function drawPeople(people) {
+  if (stage.mode === 'motion') return;
+  const s = Math.min(stage.W, stage.H) * 0.09;
+  for (const pp of people) {
+    const c = colOf(pp.body.x);
+    let face = '😀';
+    if (phase && phase.cols.includes(c)) face = phase.kind === 'heat' ? '😰' : phase.kind === 'burn' ? '🥵' : '😀';
+    // dấu chân ở chỗ thân, mặt cảm xúc trên đầu
+    ctx.fillStyle = 'rgba(255,255,255,.35)';
+    ctx.beginPath(); ctx.ellipse(pp.body.x, pp.body.y, s * 0.6, s * 0.2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.font = `${s}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const hy = pp.pointer ? pp.body.y - s : pp.head.y - s * 0.9;
+    ctx.fillText(face, pp.pointer ? pp.body.x : pp.head.x, hy);
+  }
+}
+
+function frame(now) {
+  const people = stage.update();
+  stage.drawVideo(0.1);
+  step(now, people);
+  drawFloor(now);
+  drawFlames();
+  drawPeople(people);
+
+  const { W, H } = stage;
+  const sz = Math.min(W, H) * 0.065;
+  if (state === 'play' || state === 'end') {
+    label(`Lượt ${Math.min(round, ROUNDS)}/${ROUNDS}   ⭐ ${stars}`, W / 2, H - sz, sz);
+  }
+  if (banner && now < banner.until) label(banner.text, W / 2, H * 0.45, sz * 1.4, banner.color);
+  fx.draw(ctx);
+  if (countText) label(countText, W / 2, H / 2, Math.min(W, H) * 0.25, '#FFD45E');
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
