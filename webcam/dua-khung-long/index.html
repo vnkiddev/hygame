@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Đua Khủng Long</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦖</text></svg>">
+<link rel="stylesheet" href="../lib/core.css">
+</head>
+<body>
+<script src="../lib/core.js"></script>
+<script>
+// ================= ĐUA KHỦNG LONG =================
+// Chạy tại chỗ (nâng gối — lõi đếm từng bước; không thấy gối thì tính nhún
+// người) để khủng long của mình chạy lên. Về đích trước thì thắng; hết 60 giây
+// mà chưa ai về thì ai đi xa hơn thắng. Chơi 1 người: phá kỷ lục của mình.
+
+const DINO = [
+  { body: '#ff5a5f', dark: '#b83236', belly: '#ffd0d0', kind: 'rex' },    // P1
+  { body: '#3d8bff', dark: '#1f5fbf', belly: '#d6e6ff', kind: 'long' },   // P2
+];
+const SOLO = { body: '#43a047', dark: '#2e7d32', belly: '#dcedc8', kind: 'rex' };
+
+const GAME = {
+  title: 'Đua Khủng Long',
+  desc: '<b>Chạy tại chỗ</b> thật nhanh — nâng gối lên cao — để khủng long của con chạy về đích! 🦖<br>Ai về đích trước thắng. Hết 60 giây chưa ai về thì ai đi xa hơn thắng.',
+  keys: 'Không có camera: A/S bấm xen kẽ = P1 chạy · K/L = P2 chạy',
+  tune: 'dino',
+  camOff: true,
+  DUR: 60, TRACK: 100,        // 100 mét
+  BOOST: 1.25, DRAG: 1.1, VMAX: 7,
+  menuInit() {},
+  reset(N) {
+    this.N = N; this.time = this.DUR; this.fast = false; this.over = false; this.endT = 0;
+    this.p = [...Array(N)].map(() => ({ d: 0, v: 0, phase: 0, steps: 0, fin: null, flash: 0, dust: 0 }));
+    this.scroll = 0;
+    BGM.setFast(false);
+  },
+  onStep(i, n) {
+    if (G.state !== 'play' || this.over) return;
+    const p = this.p[i]; if (!p || p.fin !== null) return;
+    p.v = Math.min(this.VMAX, p.v + this.BOOST * n);
+    p.steps += n; p.flash = .15;
+    tone(i === 0 ? 150 : 190, .06, 'sine', .08, 90);          // tiếng bước chân khẽ
+  },
+  onKey(c) {
+    if (G.camReady) return;
+    const map = { KeyA: 0, KeyS: 0, Space: 0, KeyK: 1, KeyL: 1 };
+    if (c in map && map[c] < this.N) {
+      // bấm xen kẽ 2 phím mới tính, giống nhấc chân trái/phải
+      const last = this['lastKey' + map[c]];
+      if (c !== last || c === 'Space') this.onStep(map[c], 1);
+      this['lastKey' + map[c]] = c;
+    }
+  },
+  update(dt) {
+    if (this.over) { this.endT -= dt; if (this.endT <= 0) this.finish(); this.animate(dt); return; }
+    this.time -= dt;
+    if (!this.fast && this.time <= 10) { this.fast = true; floatText(W / 2, H * .3, '⚡ Nhanh lên!', '#e53935', .08); }
+    for (let i = 0; i < this.N; i++) {
+      const p = this.p[i];
+      if (p.fin !== null) continue;
+      p.v = Math.max(0, p.v - p.v * this.DRAG * dt - .15 * dt);
+      p.d += p.v * dt;
+      if (p.d >= this.TRACK) {
+        p.d = this.TRACK; p.fin = this.DUR - this.time;
+        SFX.bonus(); tone(110, .5, 'sawtooth', .1, 70);     // gầm!
+        const [x, y] = this.dinoXY(i);
+        burst(x, y - this.laneH() * .3, 30, ['#ffd54f', '#fff', DINO[i] ? DINO[i].body : SOLO.body], 1.2);
+        floatText(x, y - this.laneH() * .6, '🏁 Về đích!', this.N > 1 ? DARKS[i] : '#2e7d32', .07);
+        // 2 người: ai về trước là thắng luôn; 1 người: về đích là xong
+        this.over = true; this.endT = 1.6;
+      }
+    }
+    if (this.time <= 0) { this.time = 0; this.over = true; this.endT = .2; }
+    // nhạc nhanh theo tốc độ trung bình
+    const avg = this.p.reduce((a, p) => a + p.v, 0) / this.N;
+    BGM.setRate(1 + avg / this.VMAX * .4 + (this.fast ? .1 : 0));
+    this.animate(dt);
+  },
+  animate(dt) {
+    for (let i = 0; i < this.N; i++) {
+      const p = this.p[i];
+      p.phase += (p.v * 2.2 + (p.v > .2 ? 2 : 0)) * dt;
+      p.flash = Math.max(0, p.flash - dt);
+      if (p.v > 2.5 && Math.random() < p.v * dt * 2) {
+        const [x, y] = this.dinoXY(i);
+        PARTS.push({ x: x - this.laneH() * .35, y, vx: -H * rand(.1, .3), vy: -H * rand(.05, .2), r: H * rand(.006, .012), life: rand(.3, .6), c: 'rgba(160,120,80,.7)' });
+      }
+    }
+    const lead = Math.max(...this.p.map(p => p.v));
+    this.scroll += lead * dt;
+  },
+  finish() {
+    const ds = this.p.map(p => p.d), fins = this.p.map(p => p.fin);
+    if (this.N === 1) {
+      const p = this.p[0], best = store.get('kg_dino_best', null);   // {t} nếu đã về đích, {d} nếu chưa
+      const better = !best || (p.fin !== null ? (best.t === undefined || p.fin < best.t) : (best.t === undefined && p.d > best.d));
+      if (better) store.set('kg_dino_best', p.fin !== null ? { t: +p.fin.toFixed(1) } : { d: Math.floor(p.d) });
+      const text = p.fin !== null ? `Về đích sau ${p.fin.toFixed(1)} giây 🦖` : `Chạy được ${Math.floor(p.d)} mét 🦖`;
+      const rec = best ? (best.t !== undefined ? `Kỷ lục: về đích sau ${best.t} giây` : `Kỷ lục: ${best.d} mét`) : '';
+      return endGame(p.fin !== null ? '🏁 Về đích rồi!' : '🎉 Hết giờ!', [{ i: 0, text }], better ? '🏆 Kỷ lục mới!' : rec);
+    }
+    const winner = fins.some(f => f !== null) ? fins.findIndex(f => f !== null) : null;
+    const rows = [0, 1].sort((a, b) => (winner === a ? -1 : winner === b ? 1 : ds[b] - ds[a]))
+      .map(i => ({ i, text: fins[i] !== null ? `🏁 về đích (${fins[i].toFixed(1)} giây)` : `${Math.floor(ds[i])} mét` }));
+    const tie = winner === null && Math.floor(ds[0]) === Math.floor(ds[1]);
+    endGame(tie ? '🤝 Hòa nhau rồi!' : `🏆 ${PNAME[rows[0].i]} thắng!`, rows);
+  },
+
+  // ---------- bố cục ----------
+  trackTop() { return useCamBG() ? H * .5 : H * .3; },
+  laneH() { return (H - this.trackTop() - H * .04) / this.N; },
+  startX() { return W * .1; },
+  finishX() { return W * .88; },
+  dinoXY(i) {
+    const p = this.p[i], x = this.startX() + (this.finishX() - this.startX()) * (p.d / this.TRACK);
+    return [x, this.trackTop() + this.laneH() * (i + .82)];
+  },
+
+  draw(dt) {
+    const N = this.N, top = this.trackTop(), lh = this.laneH();
+    if (useCamBG()) {
+      drawCamBG(.05);
+    } else {
+      // trời + núi lửa + cây dương xỉ, trôi chậm về sau
+      const g = ctx.createLinearGradient(0, 0, 0, top); g.addColorStop(0, '#ffcc80'); g.addColorStop(1, '#fff3e0');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, top + 2);
+      const off = (this.scroll * H * .02) % (W * .6);
+      ctx.fillStyle = '#a1887f';
+      for (let k = -1; k < 4; k++) {
+        const x = k * W * .6 - off * .5;
+        ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x + W * .18, top - H * .17); ctx.lineTo(x + W * .24, top - H * .17); ctx.lineTo(x + W * .42, top); ctx.fill();
+      }
+      ctx.fillStyle = '#ff7043';
+      for (let k = -1; k < 4; k++) { const x = k * W * .6 - off * .5; ctx.beginPath(); ctx.ellipse(x + W * .21, top - H * .17, W * .03, H * .012, 0, 0, 7); ctx.fill(); }
+      ctx.font = emojiFont(H * .09); ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      for (let k = -1; k < 8; k++) ctx.fillText(k % 2 ? '🌴' : '🌿', k * W * .17 - (this.scroll * H * .05) % (W * .17) + W * .17, top + 4);
+    }
+    // làn đua
+    ctx.fillStyle = useCamBG() ? 'rgba(124,179,66,.92)' : '#8bc34a';
+    ctx.fillRect(0, top, W, H - top);
+    for (let i = 0; i < N; i++) {
+      const y0 = top + lh * i;
+      ctx.fillStyle = i % 2 ? 'rgba(0,0,0,.05)' : 'rgba(255,255,255,.07)'; ctx.fillRect(0, y0, W, lh);
+      // đất chạy: vệt cỏ trôi ngược theo tốc độ của chính bé
+      ctx.fillStyle = 'rgba(85,139,47,.55)';
+      const sp = (this.p[i].d * H * .06) % (W * .08);
+      for (let x = -sp; x < W; x += W * .08) { ctx.beginPath(); ctx.ellipse(x, y0 + lh * .9, H * .02, H * .005, 0, 0, 7); ctx.fill(); }
+      if (i) { ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.fillRect(0, y0 - 2, W, 4); }
+      if (N > 1) outlined(PNAME[i], W * .04, y0 + lh * .5, lh * .22, '#fff', DARKS[i]);
+    }
+    // vạch xuất phát + cờ đích + mốc mét
+    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillRect(this.startX() - 2, top, 4, H - top);
+    const fx = this.finishX(), sq = Math.max(8, H * .02);
+    for (let y = top, r = 0; y < H; y += sq, r++) for (let c = 0; c < 2; c++) { ctx.fillStyle = (r + c) % 2 ? '#222' : '#fff'; ctx.fillRect(fx + c * sq, y, sq, sq); }
+    ctx.font = emojiFont(H * .07); ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText('🏁', fx + sq, top + 4);
+    for (let m = 25; m < this.TRACK; m += 25) {
+      const x = this.startX() + (fx - this.startX()) * m / this.TRACK;
+      outlined(`${m}m`, x, top + H * .02, H * .022, 'rgba(255,255,255,.9)', 'rgba(0,0,0,.25)', 'center', 'top', 700);
+    }
+    // khủng long
+    for (let i = 0; i < N; i++) {
+      const [x, y] = this.dinoXY(i), p = this.p[i];
+      drawDino(x, y, lh * .62, N === 1 ? SOLO : DINO[i], p.phase, p.v, p.fin !== null, p.flash);
+      if (G.camReady && G.state === 'play' && !TR[i].seen) outlined('Chưa thấy bé', W / 2, top + lh * (i + .45), lh * .16, '#fff', '#000');
+      // đồng hồ tốc độ nhỏ
+      const bw = W * .1, bx = W - bw - W * .02, by = top + lh * i + lh * .12;
+      roundRect(bx, by, bw, H * .018, H * .009); ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fill();
+      roundRect(bx, by, bw * Math.min(1, p.v / this.VMAX), H * .018, H * .009); ctx.fillStyle = p.v > 4.5 ? '#ff7043' : '#ffd54f'; ctx.fill();
+      ctx.font = emojiFont(H * .03); ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillText(p.v > 4.5 ? '🔥' : '💨', bx - 6, by + H * .009);
+    }
+    // thanh trên
+    ctx.fillStyle = 'rgba(255,255,255,.75)'; roundRect(W / 2 - H * .12, H * .012, H * .24, H * .085, H * .04); ctx.fill();
+    outlined(`⏱ ${Math.ceil(this.time)}`, W / 2, H * .055, H * .06, this.time <= 10 ? '#e53935' : '#5d4037');
+    if (N === 1) outlined(`🦖 ${Math.floor(this.p[0].d)}m`, H * .03, H * .055, H * .06, '#2e7d32', '#fff', 'left');
+    else for (let i = 0; i < N; i++) {
+      const zx = i === 0 ? W * .15 : W * .85, fs = H * .05;
+      roundRect(zx - fs * 2.4, H * .055 - fs * .7, fs * 4.8, fs * 1.4, fs * .7); ctx.fillStyle = COLORS[i]; ctx.fill();
+      outlined(`${PNAME[i]}  ${Math.floor(this.p[i].d)}m`, zx, H * .055, fs * .8, '#fff', DARKS[i]);
+    }
+  },
+  msgY() { return this.trackTop() - H * .03; }
+};
+
+// ---------- Vẽ khủng long (chân chạy theo pha, nghiêng người khi chạy nhanh) ----------
+function drawDino(x, y, s, c, phase, v, done, flash) {
+  ctx.save();
+  ctx.translate(x, y);
+  const bob = Math.abs(Math.sin(phase * Math.PI)) * s * .06 * Math.min(1, v / 2);
+  ctx.translate(0, -bob);
+  ctx.rotate(Math.min(.18, v * .025));                     // chúi về trước khi chạy nhanh
+  if (flash) { ctx.shadowColor = '#fff59d'; ctx.shadowBlur = s * .3; }
+  // bóng
+  ctx.save(); ctx.rotate(-Math.min(.18, v * .025)); ctx.fillStyle = 'rgba(0,0,0,.18)';
+  ctx.beginPath(); ctx.ellipse(0, bob + s * .02, s * .5, s * .07, 0, 0, 7); ctx.fill(); ctx.restore();
+  // chân (sau rồi trước)
+  const leg = (ph, shade) => {
+    const a = Math.sin(ph * Math.PI) * .7 * Math.min(1, v / 1.5 + .15);
+    ctx.save(); ctx.translate(-s * .02, -s * .32); ctx.rotate(a);
+    ctx.fillStyle = shade; roundRect(-s * .07, 0, s * .14, s * .32, s * .06); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(s * .04, s * .31, s * .11, s * .05, 0, 0, 7); ctx.fill();
+    ctx.restore();
+  };
+  leg(phase + 1, c.dark);
+  // đuôi
+  ctx.fillStyle = c.body;
+  ctx.beginPath(); ctx.moveTo(-s * .25, -s * .55); ctx.quadraticCurveTo(-s * .75, -s * .5 + Math.sin(phase * 3) * s * .04, -s * .9, -s * .3);
+  ctx.quadraticCurveTo(-s * .6, -s * .32, -s * .2, -s * .3); ctx.fill();
+  // thân
+  ctx.beginPath(); ctx.ellipse(0, -s * .48, s * .33, s * .24, -.15, 0, 7); ctx.fill();
+  ctx.fillStyle = c.belly; ctx.beginPath(); ctx.ellipse(s * .06, -s * .4, s * .2, s * .13, -.15, 0, 7); ctx.fill();
+  // gai lưng
+  ctx.fillStyle = c.dark;
+  for (let k = 0; k < 4; k++) { const bx = -s * .26 + k * s * .14, byy = -s * .7 + Math.abs(k - 1.5) * s * .03; ctx.beginPath(); ctx.moveTo(bx - s * .05, byy + s * .03); ctx.lineTo(bx, byy - s * .08); ctx.lineTo(bx + s * .05, byy + s * .03); ctx.fill(); }
+  // cổ + đầu
+  ctx.fillStyle = c.body;
+  let hx, hy;
+  if (c.kind === 'long') {
+    ctx.beginPath(); ctx.moveTo(s * .15, -s * .62); ctx.quadraticCurveTo(s * .3, -s * 1.15, s * .45, -s * 1.12); ctx.lineTo(s * .5, -s * 1.0);
+    ctx.quadraticCurveTo(s * .38, -s * 1.0, s * .3, -s * .5); ctx.fill();
+    hx = s * .52; hy = -s * 1.08;
+    ctx.beginPath(); ctx.ellipse(hx, hy, s * .15, s * .1, .15, 0, 7); ctx.fill();
+  } else {
+    ctx.beginPath(); ctx.ellipse(s * .26, -s * .72, s * .13, s * .16, .4, 0, 7); ctx.fill();
+    hx = s * .42; hy = -s * .86;
+    ctx.beginPath(); ctx.ellipse(hx, hy, s * .22, s * .14, .1, 0, 7); ctx.fill();
+    // tay ngắn
+    ctx.strokeStyle = c.dark; ctx.lineWidth = s * .05; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(s * .25, -s * .52); ctx.lineTo(s * .36, -s * .45 + Math.sin(phase * Math.PI) * s * .03); ctx.stroke();
+  }
+  // mắt + miệng
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(hx + s * .02, hy - s * .04, s * .055, 0, 7); ctx.fill();
+  ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(hx + s * .035, hy - s * .04, s * .028, 0, 7); ctx.fill();
+  ctx.strokeStyle = c.dark; ctx.lineWidth = s * .025;
+  ctx.beginPath();
+  if (done) { ctx.fillStyle = '#b71c1c'; ctx.ellipse(hx + s * .12, hy + s * .05, s * .07, s * .05, 0, 0, 7); ctx.fill(); }   // há miệng gầm
+  else { ctx.arc(hx + s * .08, hy + s * .02, s * .07, .2, 1.3); ctx.stroke(); }
+  leg(phase, c.body);
+  ctx.restore();
+  if (done) { ctx.font = emojiFont(s * .35); ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText('🏆', x, y - s * 1.2); }
+}
+
+boot(GAME);
+</script>
+</body>
+</html>

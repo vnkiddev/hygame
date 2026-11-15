@@ -129,6 +129,10 @@ const TUNES = {
   lava: { bpm: 112, fast: 138, beat: 'pop', bass: ['A2', 'F2', 'G2', 'E2'],
     notes: 'A4:.5 C5:.5 E5:.5 C5:.5 A5 E5 | F4:.5 A4:.5 C5:.5 A4:.5 F5 C5 | G4:.5 B4:.5 D5:.5 B4:.5 G5 D5 | E4:.5 G#4:.5 B4:.5 E5:.5 G#5 R | ' +
            'A5:.5 G5:.5 E5:.5 C5:.5 E5 A4 | F5:.5 E5:.5 C5:.5 A4:.5 C5 F4 | G5:.5 F5:.5 D5:.5 B4:.5 D5 G4 | E5:.5 D5:.5 B4:.5 G#4:.5 E5 R' },
+  // Đua khủng long: phi nước đại, nhịp nhanh theo tốc độ chạy của bé
+  dino: { bpm: 116, fast: 150, beat: 'pop', bass: ['G2', 'E2', 'C3', 'D3'],
+    notes: 'G4:.5 B4:.5 D5:.5 G5:.5 D5:.5 B4:.5 D5 | E5:.5 G5:.5 E5:.5 B4:.5 E5 R | C5:.5 E5:.5 G5:.5 C6:.5 G5:.5 E5:.5 G5 | D5:.5 F#5:.5 A5:.5 D6:.5 A5 R | ' +
+           'B5:.5 A5:.5 G5:.5 D5:.5 G5 B5 | E5:.5 F#5:.5 G5:.5 E5:.5 B4 R | C6:.5 B5:.5 A5:.5 G5:.5 E5:.5 G5:.5 C6 | D6:.5 C6:.5 A5:.5 F#5:.5 G5 R' },
 };
 for (const k in TUNES) { TUNES[k].seq = parseTune(TUNES[k].notes); TUNES[k].bassF = TUNES[k].bass.map(nf); }
 
@@ -159,6 +163,8 @@ const BGM = {
     if (!keepWanted) this.wanted = null;
   },
   setMode(m) { this.mode = m; if (m !== 'file') store.set('kg_bgm', m); },
+  // tốc độ nhạc theo tỉ lệ (1 = bình thường), dùng cho trò muốn nhạc bám theo bé
+  setRate(f) { if (this.tune) this.bpm = this.tune.bpm * clamp(f, .8, 1.4); if (this.fileEl) this.fileEl.playbackRate = clamp(f, .8, 1.25); },
   setFast(on) { if (this.tune) this.bpm = on ? this.tune.fast : this.tune.bpm; if (this.fileEl) this.fileEl.playbackRate = on ? 1.12 : 1; },
   tick() {
     const T = this.tune, spb = 60 / this.bpm, hz = AC.currentTime + .15, o = this.out;
