@@ -3,7 +3,7 @@
 #
 #     bash scripts/deploy-webcam.sh
 #
-# Trang tĩnh, chạy bằng `python3 -m http.server` dưới PM2 (tên "webcam", cổng 6010),
+# Trang tĩnh, chạy bằng webcam/serve.py dưới PM2 (tên "webcam", cổng 6010),
 # cloudflared đã trỏ webcam.vnkid.dev về cổng đó.
 #
 # Cloudflare cache .js/.css tới 4 tiếng, nên mỗi lần deploy gắn ?v=<mã nội dung>
@@ -25,7 +25,11 @@ $SSH "
   set -e
   cd ~/apps/webcam
   find . -name '*.html' -exec sed -i -E 's#(lib/core\.(js|css))(\?v=[a-z0-9]+)?\"#\1?v=$VER\"#g' {} +
-  pm2 describe webcam >/dev/null 2>&1 || pm2 start python3 --name webcam --interpreter none -- -m http.server \$(cat .port 2>/dev/null || echo 6010) --bind 127.0.0.1 -d \$HOME/apps/webcam
+  # serve.py thêm header Cache-Control; khởi động lại để nạp bản mới của chính nó
+  pm2 delete webcam >/dev/null 2>&1 || true
+  pm2 start python3 --name webcam --interpreter none -- \$HOME/apps/webcam/serve.py \$(cat .port 2>/dev/null || echo 6010) >/dev/null
+  pm2 save >/dev/null 2>&1 || true
+  sleep 1
   curl -fsS -o /dev/null http://localhost:\$(cat .port 2>/dev/null || echo 6010)/
 "
 echo "✅ webcam.vnkid.dev đã cập nhật (v=$VER)"
