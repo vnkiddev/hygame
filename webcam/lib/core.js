@@ -283,7 +283,11 @@ function initCam() {
     }
     try {
       st.textContent = 'Đang bật camera…';
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }, audio: false });
+      // Xin khung 16:9 cho khớp màn hình, và KHÔNG để trình duyệt tự cắt khung
+      // gốc của camera (resizeMode none) — giữ trọn góc nhìn của camera.
+      const stream = await navigator.mediaDevices.getUserMedia({ video: {
+        width: { ideal: 1280 }, height: { ideal: 720 }, aspectRatio: { ideal: 16 / 9 },
+        resizeMode: { ideal: 'none' }, facingMode: 'user' }, audio: false });
       video.srcObject = stream; await video.play();
       st.textContent = 'Đang tải mô hình nhận diện (lần đầu hơi lâu)…';
       const V = await import(MP + '/vision_bundle.mjs');
@@ -487,7 +491,7 @@ function trackerIndexOf(lm) { for (let i = 0; i < G.N; i++) if (TR[i].seen && TR
 
 // camera thu nhỏ, đã lật gương, có chia ô (zones=false: không chia ô)
 function drawCam(x, y, w, big = false, zones = true, c = ctx) {
-  const h = w * .75;
+  const h = w / camAspect();
   c.save();
   c.fillStyle = 'rgba(0,0,0,.45)'; c.fillRect(x - 4, y - 4, w + 8, h + 8);
   c.beginPath(); c.rect(x, y, w, h); c.clip();
@@ -517,12 +521,12 @@ function defaultCamRect() { const w = H * .16; return { x: W - w - H * .02, y: H
 // ---------- Nền bằng hình camera ----------
 // Đang dùng nền camera? (chọn ở menu, và camera phải đang chạy)
 const useCamBG = () => G.bgCam && G.camReady && video.readyState >= 2;
-// Video phủ kín màn hình kiểu "cover", lật gương
-function camCover() {
-  const vw = video.videoWidth || 4, vh = video.videoHeight || 3, s = Math.max(W / vw, H / vh);
-  const dw = vw * s, dh = vh * s;
-  return { dw, dh, ox: (W - dw) / 2, oy: (H - dh) / 2 };
-}
+// Video trải trọn màn hình, KHÔNG cắt phần nào của khung camera (lật gương).
+// Camera 16:9 trên màn 16:9 thì đúng tỉ lệ; camera khác tỉ lệ thì giãn nhẹ
+// thay vì cắt — để tay giơ cao hay chân vẫn nằm trong khung chơi.
+function camCover() { return { dw: W, dh: H, ox: 0, oy: 0 }; }
+// tỉ lệ khung camera (rộng/cao) — để vẽ ô xem trước đúng hình
+const camAspect = () => (video.videoWidth && video.videoHeight) ? video.videoWidth / video.videoHeight : 16 / 9;
 // Điểm mốc MediaPipe -> toạ độ màn hình, khớp đúng với hình camera đang vẽ
 function camToScreen(p) { const c = camCover(); return [c.ox + (1 - p.x) * c.dw, c.oy + p.y * c.dh]; }
 function drawCamBG(dim = .12) {
@@ -574,7 +578,7 @@ function updateReady(dt) {
 }
 function drawReady() {
   ctx.fillStyle = 'rgba(10,20,40,.75)'; ctx.fillRect(0, 0, W, H);
-  const w = Math.min(W * .72, H * .92), h = w * .75, x = (W - w) / 2, y = H * .14;
+  const w = Math.min(W * .72, H * .72 * camAspect()), h = w / camAspect(), x = (W - w) / 2, y = H * .14;
   const msg = G.N === 1 ? 'Đứng vào giữa khung hình nhé!' : CUR.freeRoam ? 'Hai bé cùng đứng vào khung hình nhé!' : 'Mỗi bé đứng vào 1 ô màu của mình!';
   outlined(msg, W / 2, H * .07, H * .055, '#ffeb3b', '#000');
   drawCam(x, y, w, true, !CUR.freeRoam);
@@ -709,7 +713,7 @@ function loop(now) {
     if (G.state === 'play' && G.showCam && G.camReady && CUR.camRect !== null) {
       const r = (CUR.camRect || defaultCamRect)();
       drawCam(r.x, r.y, r.w, false, !CUR.freeRoam);
-      if (CUR.usesSens) outlined(`Độ nhạy ${sensLevel()} (↑/↓)`, r.x + r.w, r.y + r.w * .75 + H * .018, H * .018, '#333', '#fff', 'right', 'middle', 700);
+      if (CUR.usesSens) outlined(`Độ nhạy ${sensLevel()} (↑/↓)`, r.x + r.w, r.y + r.w / camAspect() + H * .018, H * .018, '#333', '#fff', 'right', 'middle', 700);
     }
     if (G.state === 'play' && G.camMsg) outlined(G.camMsg, W / 2, CUR.msgY ? CUR.msgY() : H - H * .03, H * .022, '#b23c00', '#fff', 'center', 'middle', 700);
     if (G.state === 'ready') drawReady();

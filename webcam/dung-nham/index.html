@@ -36,7 +36,7 @@ const GAME = {
   start() { this.nextRound(); },
   colW() { return W / COLS; },
   // vị trí bé trên sàn (toạ độ màn hình), null nếu không thấy
-  mapCam(p) { if (useCamBG()) return camToScreen(p); return [W * (.5 + ((1 - p.x) - .5) * 1.15), H * (.5 + (p.y - .5) * 1.05)]; },
+  mapCam(p) { return camToScreen(p); },   // trọn khung camera, không phóng/cắt
   playerX(i) {
     const t = TR[i];
     if (G.camReady) {

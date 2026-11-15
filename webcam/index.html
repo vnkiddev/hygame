@@ -70,7 +70,7 @@ bootHome((dt) => {
   }
   if (G.camReady) {
     const w = H * .22;
-    drawCam(W - w - H * .02, H - w * .75 - H * .02, w, false, false);
+    drawCam(W - w - H * .02, H - w / camAspect() - H * .02, w, false, false);
   }
   // nhắc chạm màn hình nếu trình duyệt chưa cho phát nhạc
   $('tapMusic').classList.toggle('hidden', !musicOn() || audioUnlocked());

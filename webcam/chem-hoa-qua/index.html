@@ -42,10 +42,7 @@ const GAME = {
     BGM.setFast(false);
   },
   // tay trên màn hình: khớp với hình camera nếu đang dùng nền camera
-  mapCam(p) {
-    if (useCamBG()) return camToScreen(p);
-    return [W * (.5 + ((1 - p.x) - .5) * 1.15), H * (.5 + (p.y - .5) * 1.1)];
-  },
+  mapCam(p) { return camToScreen(p); },   // trọn khung camera, không phóng/cắt
   zoneOf(x) { return this.N === 1 ? 0 : (x < W / 2 ? 0 : 1); },
   spawn() {
     const prog = 1 - this.time / this.DUR;

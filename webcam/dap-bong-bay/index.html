@@ -39,7 +39,7 @@ const GAME = {
     burst(b.x, b.y, b.gold ? 26 : 14, b.gold ? ['#ffd54f', '#fff59d', '#ffffff'] : [b.color, '#ffffff', b.color], .9);
     floatText(b.x, b.y - b.r, '+' + pts, this.N > 1 ? DARKS[i] : '#e65100', .06);
   },
-  mapCam(p) { if (useCamBG()) return camToScreen(p); return [W * (.5 + ((1 - p.x) - .5) * 1.12), H * (.5 + (p.y - .5) * 1.08)]; },
+  mapCam(p) { return camToScreen(p); },   // trọn khung camera, không phóng/cắt
   update(dt) {
     this.time -= dt;
     if (this.time <= 0) { this.time = 0; return this.finish(); }

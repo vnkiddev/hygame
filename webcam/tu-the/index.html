@@ -66,7 +66,7 @@ const GAME = {
   },
   // góc (độ) của đoạn a→b trên hình lật gương, đúng tỉ lệ khung hình camera
   ang(lm, a, b) {
-    const asp = (video.videoWidth || 4) / (video.videoHeight || 3);
+    const asp = W / H;   // khớp với hình đang hiện (camera trải trọn màn hình)
     return Math.atan2(lm[b].y - lm[a].y, -(lm[b].x - lm[a].x) * asp) * 180 / Math.PI;
   },
   check(i) {
