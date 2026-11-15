@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Làm Theo Tư Thế</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🙆</text></svg>">
+<link rel="stylesheet" href="../lib/core.css">
+</head>
+<body>
+<script src="../lib/core.js"></script>
+<script>
+// ================= LÀM THEO TƯ THẾ =================
+// Màn hình hiện tư thế mẫu (thẻ hình) + một "hình bóng" tư thế vẽ đè ngay
+// lên người bé, neo vào vai/hông của chính bé. Đoạn tay/chân nào đặt đúng
+// hướng thì sáng xanh. Khớp hết và giữ yên một chút là qua tư thế mới.
+//
+// So khớp theo HƯỚNG của từng đoạn (vai→khuỷu, khuỷu→cổ tay, hông→cổ chân),
+// đo trên hình đã lật gương — bé làm theo như soi gương. Sai lệch cho phép
+// rộng (35°) để trẻ nhỏ làm được.
+
+// Góc theo màn hình: 0 = sang phải, 90 = xuống, -90 = lên, 180 = sang trái.
+// L = tay/chân bên TRÁI màn hình, R = bên PHẢI màn hình.
+// lu/ru: cánh tay trên, lf/rf: cẳng tay, ll/rl: chân (hông → cổ chân).
+const POSES = [
+  { name: 'Hai tay xoè xuống', emo: '🧍', segs: { lu: 140, lf: 140, ru: 40, rf: 40 } },   // đứng thả tay tự nhiên (~95°) chưa tính, phải xoè ra
+  { name: 'Giơ hai tay lên trời', emo: '🙌', segs: { lu: -90, lf: -90, ru: -90, rf: -90 } },
+  { name: 'Dang tay máy bay', emo: '✈️', segs: { lu: 180, lf: 180, ru: 0, rf: 0 } },
+  { name: 'Chữ Y', emo: '🙆', segs: { lu: -135, lf: -135, ru: -45, rf: -45 } },
+  { name: 'Một tay giơ cao', emo: '🙋', segs: { lu: 95, lf: 95, ru: -90, rf: -90 } },
+  { name: 'Một tay giơ cao', emo: '🙋', segs: { lu: -90, lf: -90, ru: 85, rf: 85 } },
+  { name: 'Lực sĩ', emo: '💪', segs: { lu: 180, lf: -90, ru: 0, rf: -90 } },
+  { name: 'Tay lên, tay ngang', emo: '🦸', segs: { lu: -90, lf: -90, ru: 0, rf: 0 } },
+  { name: 'Tay ngang, tay lên', emo: '🦸', segs: { lu: 180, lf: 180, ru: -90, rf: -90 } },
+  { name: 'Mái nhà', emo: '🏠', segs: { lu: -125, lf: -50, ru: -55, rf: -130 } },
+  { name: 'Ngôi sao', emo: '⭐', segs: { lu: -135, lf: -135, ru: -45, rf: -45, ll: 112, rl: 68 } },
+  { name: 'Chân dạng, tay ngang', emo: '🤸', segs: { lu: 180, lf: 180, ru: 0, rf: 0, ll: 112, rl: 68 } },
+];
+const EASY = 3;          // 3 tư thế đầu dễ nhất, luôn ra trước
+// Điểm mốc theo phía màn hình (hình lật gương: tay trái của bé nằm bên trái màn hình)
+const SIDE = { l: { sh: 11, el: 13, wr: 15, hip: 23, an: 27 }, r: { sh: 12, el: 14, wr: 16, hip: 24, an: 28 } };
+const TOL = 35, TOL_LEG = 30, HOLD = .8, SKIP_AFTER = 15;
+
+const angDiff = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
+
+const GAME = {
+  title: 'Làm Theo Tư Thế',
+  desc: 'Nhìn hình rồi <b>làm theo tư thế</b> như soi gương! 🙆<br>Hình bóng hiện ngay trên người con — đặt tay chân vào cho <b>sáng xanh</b> rồi giữ yên một chút. 60 giây, làm được nhiều tư thế nhất!',
+  keys: 'Không có camera: Space = coi như đã làm đúng (để thử)',
+  tune: 'pose',
+  camOff: true,
+  DUR: 60,
+  menuInit() {},
+  reset(N) {
+    this.N = N; this.time = this.DUR; this.fast = false;
+    // cả 2 bé cùng một thứ tự tư thế cho công bằng: dễ trước, còn lại xáo trộn
+    const rest = POSES.slice(EASY).sort(() => Math.random() - .5);
+    this.order = POSES.slice(0, EASY).concat(rest);
+    this.p = [...Array(N)].map(() => ({ k: 0, score: 0, hold: 0, poseT: 0, ok: {}, all: false, cheer: 0 }));
+    BGM.setFast(false);
+  },
+  pose(i) { return this.order[this.p[i].k % this.order.length]; },
+  onKey(c) {
+    if (c === 'Space' && !G.camReady) this.success(0);
+    if (c === 'Enter' && !G.camReady && this.N > 1) this.success(1);
+  },
+  // góc (độ) của đoạn a→b trên hình lật gương, đúng tỉ lệ khung hình camera
+  ang(lm, a, b) {
+    const asp = (video.videoWidth || 4) / (video.videoHeight || 3);
+    return Math.atan2(lm[b].y - lm[a].y, -(lm[b].x - lm[a].x) * asp) * 180 / Math.PI;
+  },
+  check(i) {
+    const t = TR[i], P = this.pose(i), ok = {};
+    if (!t.seen || !t.lm) { this.p[i].ok = {}; return false; }
+    const lm = t.lm, vis = k => (lm[k].visibility ?? 1) > .5;
+    let all = true;
+    for (const [key, target] of Object.entries(P.segs)) {
+      const S = SIDE[key[0]], part = key[1];
+      const [a, b] = part === 'u' ? [S.sh, S.el] : part === 'f' ? [S.el, S.wr] : [S.hip, S.an];
+      if (!vis(a) || !vis(b)) {
+        // chân khuất (đứng gần camera) thì bỏ qua yêu cầu chân, tay khuất thì chưa đạt
+        ok[key] = part === 'l' ? 'skip' : false;
+        if (part !== 'l') all = false;
+        continue;
+      }
+      const good = angDiff(this.ang(lm, a, b), target) < (part === 'l' ? TOL_LEG : TOL);
+      ok[key] = good; if (!good) all = false;
+    }
+    this.p[i].ok = ok;
+    return all;
+  },
+  success(i) {
+    const p = this.p[i];
+    p.score++; p.k++; p.hold = 0; p.poseT = 0; p.cheer = 1.2;
+    SFX.bonus();
+    const zx = (i + .5) * W / this.N;
+    burst(zx, H * .4, 26, ['#ffd54f', '#69f0ae', '#40c4ff', '#ff80ab', '#fff'], 1.2);
+    const praise = ['Giỏi quá! ✨', 'Đúng rồi! 🎉', 'Tuyệt vời! 🌟', 'Siêu quá! 💯'];
+    floatText(zx, H * .32, praise[Math.random() * praise.length | 0], this.N > 1 ? DARKS[i] : '#e65100', .07);
+  },
+  update(dt) {
+    this.time -= dt;
+    if (this.time <= 0) { this.time = 0; return this.finish(); }
+    if (!this.fast && this.time <= 10) { this.fast = true; BGM.setFast(true); floatText(W / 2, H * .3, '⚡ Nhanh lên!', '#e53935', .08); }
+    for (let i = 0; i < this.N; i++) {
+      const p = this.p[i];
+      p.cheer = Math.max(0, p.cheer - dt);
+      p.poseT += dt;
+      if (!G.camReady) continue;
+      p.all = this.check(i);
+      if (p.all) {
+        if (p.hold === 0) tone(880, .08, 'triangle', .1);
+        p.hold += dt;
+        if (p.hold >= HOLD) this.success(i);
+      } else p.hold = Math.max(0, p.hold - dt * 2);
+      if (p.poseT > SKIP_AFTER) {           // khó quá thì đổi tư thế khác, không phạt
+        p.k++; p.poseT = 0; p.hold = 0;
+        floatText((i + .5) * W / this.N, H * .32, 'Thử tư thế khác nhé!', '#5d4037', .05);
+      }
+    }
+  },
+  finish() {
+    if (this.N === 1) {
+      const sc = this.p[0].score, best = store.get('kg_pose_best', 0);
+      if (sc > best) store.set('kg_pose_best', sc);
+      return endGame('🎉 Hết giờ!', [{ i: 0, text: `Làm đúng ${sc} tư thế 🙆` }], sc > best ? '🏆 Kỷ lục mới!' : `Kỷ lục: ${best} tư thế`);
+    }
+    endVersus(this.p.map(p => p.score), s => `${s} tư thế`);
+  },
+
+  // ---------- vẽ ----------
+  // vị trí điểm mốc trên màn hình (cùng phép quy đổi với hình camera)
+  scr(lm, k) { const [x, y] = camToScreen(lm[k]); return { x, y }; },
+  draw() {
+    const N = this.N;
+    if (useCamBG()) drawCamBG(.18);
+    else {
+      const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#b3e5fc'); g.addColorStop(1, '#e1f5fe');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#c5e1a5'; ctx.fillRect(0, H * .86, W, H * .14);
+    }
+    if (N > 1) {
+      ctx.fillStyle = COLORS[0] + '14'; ctx.fillRect(0, 0, W / 2, H);
+      ctx.fillStyle = COLORS[1] + '14'; ctx.fillRect(W / 2, 0, W / 2, H);
+      ctx.setLineDash([12, 10]); ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H); ctx.stroke(); ctx.setLineDash([]);
+    }
+    for (let i = 0; i < N; i++) {
+      const t = TR[i], p = this.p[i];
+      // người que của bé (chỉ khi nền trò chơi — nền camera đã thấy người thật)
+      if (t.seen && t.lm && !useCamBG()) drawSkel(t.lm, q => camToScreen(q), (N > 1 ? COLORS[i] : '#ff8a3d') + 'aa', H * .014);
+      this.drawGhost(i);
+      this.drawCard(i);
+      if (G.camReady && G.state === 'play' && !t.seen) outlined('Đứng vào khung hình nhé', (i + .5) * W / N, H * .55, H * .04, '#fff', '#000');
+    }
+    outlined(`⏱ ${Math.ceil(this.time)}`, W / 2, H * .055, H * .06, this.time <= 10 ? '#e53935' : '#1e3a5f');
+    if (N === 1) outlined(`🙆 ${this.p[0].score}`, H * .03, H * .055, H * .07, '#e65100', '#fff', 'left');
+  },
+  // Hình bóng tư thế neo vào vai/hông thật của bé; đoạn nào đúng thì xanh.
+  drawGhost(i) {
+    const t = TR[i], p = this.p[i], P = this.pose(i), N = this.N;
+    let anchors;
+    if (t.seen && t.lm) {
+      const lm = t.lm, ls = this.scr(lm, 11), rs = this.scr(lm, 12);
+      const vis = k => (lm[k].visibility ?? 1) > .5;
+      const sw = Math.hypot(ls.x - rs.x, ls.y - rs.y);
+      let torso = sw * 1.35, lh, rh;
+      if (vis(23) && vis(24)) { lh = this.scr(lm, 23); rh = this.scr(lm, 24); torso = Math.max(torso * .7, Math.hypot((lh.x + rh.x - ls.x - rs.x) / 2, (lh.y + rh.y - ls.y - rs.y) / 2)); }
+      else { lh = { x: ls.x, y: ls.y + torso }; rh = { x: rs.x, y: rs.y + torso }; }
+      anchors = { ls, rs, lh, rh, torso };
+    } else {
+      // chưa thấy bé: vẽ mẫu ở giữa vùng của bé
+      const cx = (i + .5) * W / N, cy = H * .42, torso = H * .22, sw = torso * .7;
+      anchors = { ls: { x: cx - sw / 2, y: cy }, rs: { x: cx + sw / 2, y: cy }, lh: { x: cx - sw * .35, y: cy + torso }, rh: { x: cx + sw * .35, y: cy + torso }, torso };
+    }
+    const { torso } = anchors, U = torso * .55, F = torso * .5, LEG = torso * 1.15, lw = Math.max(10, torso * .2);
+    const dir = (deg, len, from) => ({ x: from.x + Math.cos(deg * Math.PI / 180) * len, y: from.y + Math.sin(deg * Math.PI / 180) * len });
+    const segs = [];
+    for (const s of ['l', 'r']) {
+      const sh = s === 'l' ? anchors.ls : anchors.rs, hip = s === 'l' ? anchors.lh : anchors.rh;
+      const u = P.segs[s + 'u'], f = P.segs[s + 'f'], l = P.segs[s + 'l'] ?? (s === 'l' ? 95 : 85);
+      const el = dir(u, U, sh), wr = dir(f, F, el);
+      segs.push([sh, el, p.ok[s + 'u']], [el, wr, p.ok[s + 'f']]);
+      segs.push([hip, dir(l, LEG, hip), P.segs[s + 'l'] === undefined ? 'free' : p.ok[s + 'l']]);
+      segs.hand = segs.hand || []; segs.hand.push([wr, p.ok[s + 'f']]);
+    }
+    ctx.save(); ctx.lineCap = 'round';
+    // thân + đầu mờ
+    ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = lw;
+    const mid = { x: (anchors.ls.x + anchors.rs.x) / 2, y: (anchors.ls.y + anchors.rs.y) / 2 }, hmid = { x: (anchors.lh.x + anchors.rh.x) / 2, y: (anchors.lh.y + anchors.rh.y) / 2 };
+    ctx.beginPath(); ctx.moveTo(anchors.ls.x, anchors.ls.y); ctx.lineTo(anchors.rs.x, anchors.rs.y); ctx.moveTo(mid.x, mid.y); ctx.lineTo(hmid.x, hmid.y); ctx.stroke();
+    for (const [a, b, ok] of segs) {
+      if (ok === 'free') { ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.setLineDash([]); }
+      else if (ok === true || ok === 'skip') { ctx.strokeStyle = 'rgba(76,175,80,.85)'; ctx.setLineDash([]); }
+      else { ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.setLineDash([lw * .9, lw * .7]); }
+      ctx.lineWidth = lw + 6; ctx.globalAlpha = .35; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      ctx.globalAlpha = 1; ctx.lineWidth = lw * .55; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    // bàn tay: vòng tròn đích
+    for (const [w, ok] of segs.hand) {
+      ctx.fillStyle = ok === true ? 'rgba(76,175,80,.9)' : 'rgba(255,255,255,.6)'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(w.x, w.y, lw * .75, 0, 7); ctx.fill(); ctx.stroke();
+    }
+    // vòng giữ yên quanh đầu
+    if (p.hold > 0) {
+      const hx = mid.x, hy = mid.y - torso * .45, r = torso * .3;
+      ctx.strokeStyle = '#ffeb3b'; ctx.lineWidth = lw * .45;
+      ctx.beginPath(); ctx.arc(hx, hy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, p.hold / HOLD)); ctx.stroke();
+    }
+    ctx.restore();
+  },
+  // thẻ tư thế mẫu ở trên vùng của bé
+  drawCard(i) {
+    const p = this.p[i], P = this.pose(i), N = this.N;
+    // để ở góc ngoài, tránh chỗ bé giơ tay (giữa màn hình)
+    const cw = Math.min(W / N * .32, H * .3), ch = cw * .95, m = H * .02;
+    const x = (N === 1 || i === 1) ? W - cw - m : m, y = H * .12, cx = x + cw / 2;
+    ctx.save();
+    if (p.cheer > 0) { ctx.shadowColor = '#ffeb3b'; ctx.shadowBlur = 30 * p.cheer; }
+    roundRect(x, y, cw, ch, cw * .1); ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.fill();
+    ctx.lineWidth = 5; ctx.strokeStyle = N > 1 ? COLORS[i] : '#ff8a3d'; ctx.stroke();
+    ctx.restore();
+    // hình người mẫu
+    const s = ch * .2, sx = cx, sy = y + ch * .38, sw = s * .7;
+    const ls = { x: sx - sw / 2, y: sy }, rs = { x: sx + sw / 2, y: sy };
+    const dir = (deg, len, f) => ({ x: f.x + Math.cos(deg * Math.PI / 180) * len, y: f.y + Math.sin(deg * Math.PI / 180) * len });
+    ctx.lineCap = 'round'; ctx.strokeStyle = N > 1 ? DARKS[i] : '#e65100'; ctx.lineWidth = s * .2;
+    ctx.beginPath();
+    ctx.moveTo(ls.x, ls.y); ctx.lineTo(rs.x, rs.y); ctx.moveTo(sx, sy); ctx.lineTo(sx, sy + s * 1.1);
+    for (const sd of ['l', 'r']) {
+      const sh = sd === 'l' ? ls : rs, el = dir(P.segs[sd + 'u'], s * .55, sh), wr = dir(P.segs[sd + 'f'], s * .5, el);
+      ctx.moveTo(sh.x, sh.y); ctx.lineTo(el.x, el.y); ctx.lineTo(wr.x, wr.y);
+      const hip = { x: sx + (sd === 'l' ? -1 : 1) * sw * .3, y: sy + s * 1.1 };
+      const leg = dir(P.segs[sd + 'l'] ?? (sd === 'l' ? 95 : 85), s * 1.1, hip);
+      ctx.moveTo(hip.x, hip.y); ctx.lineTo(leg.x, leg.y);
+    }
+    ctx.stroke();
+    ctx.fillStyle = ctx.strokeStyle; ctx.beginPath(); ctx.arc(sx, sy - s * .38, s * .26, 0, 7); ctx.fill();
+    outlined(`${P.emo} ${P.name}`, cx, y + ch * .88, Math.min(ch * .1, cw * .09), '#333', '#fff', 'center', 'middle', 800);
+    if (N > 1) {
+      const fs = H * .045;
+      roundRect(cx - fs * 2, y - fs * 1.15, fs * 4, fs * 1.2, fs * .6); ctx.fillStyle = COLORS[i]; ctx.fill();
+      outlined(`${PNAME[i]}  ${p.score}`, cx, y - fs * .55, fs * .8, '#fff', DARKS[i]);
+    }
+  }
+};
+
+boot(GAME);
+</script>
+</body>
+</html>

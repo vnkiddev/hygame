@@ -137,6 +137,10 @@ const TUNES = {
   fruit: { bpm: 124, fast: 146, beat: 'pop', bass: ['D3', 'B2', 'G2', 'A2'],
     notes: 'D5:.5 F#5:.5 A5 F#5:.5 D5:.5 A5 | B4:.5 D5:.5 G5 D5:.5 B4:.5 G5 | G5:.5 A5:.5 B5:.5 G5:.5 E5 D5 | C#5:.5 E5:.5 A5:.5 E5:.5 A4 R | ' +
            'F#5:.5 A5:.5 D6:.5 A5:.5 F#5 D5 | G5:.5 B5:.5 D6:.5 B5:.5 G5 R | E5:.5 F#5:.5 G5:.5 B5:.5 A5:.5 G5:.5 F#5:.5 E5:.5 | D5:.5 E5:.5 F#5:.5 A5:.5 D5 R' },
+  // Làm theo tư thế: chậm, êm như nhạc tập thể dục buổi sáng
+  pose: { bpm: 96, fast: 112, beat: 'soft', bass: ['C3', 'G2', 'A2', 'F2'],
+    notes: 'E5 G5:.5 E5:.5 C5 G4 | D5 G5:.5 D5:.5 B4 G4 | C5 E5:.5 C5:.5 A4 E5 | F5:.5 E5:.5 D5:.5 C5:.5 A4 R | ' +
+           'G5 E5:.5 G5:.5 C6 G5 | B4:.5 D5:.5 G5 D5 B4 | A4:.5 C5:.5 E5 A5 E5 | F5:.5 A5:.5 G5:.5 F5:.5 E5 R' },
 };
 for (const k in TUNES) { TUNES[k].seq = parseTune(TUNES[k].notes); TUNES[k].bassF = TUNES[k].bass.map(nf); }
 
