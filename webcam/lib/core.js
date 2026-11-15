@@ -188,7 +188,8 @@ const BGM = {
 
 // ---------- Trạng thái chung ----------
 const G = { N: 1, state: 'menu', stateT: 0, t: 0, sens: .20, showCam: true,
-            camTried: false, camReady: false, camMsg: '', readyHold: 0, lastCount: null };
+            camTried: false, camReady: false, camMsg: '', readyHold: 0, lastCount: null,
+            bgCam: store.get('kg_bg', 'cam') === 'cam' };   // nền: hình camera (mặc định) hay nền vẽ của trò
 const sensLevel = () => Math.round((.41 - G.sens) / .03);
 function setState(s) { G.state = s; G.stateT = 0; }
 let CUR = null;   // trò đang chạy (null ở trang chủ)
@@ -499,6 +500,23 @@ function drawCam(x, y, w, big = false, zones = true, c = ctx) {
 }
 function defaultCamRect() { const w = H * .16; return { x: W - w - H * .02, y: H * .012, w }; }
 
+// ---------- Nền bằng hình camera ----------
+// Đang dùng nền camera? (chọn ở menu, và camera phải đang chạy)
+const useCamBG = () => G.bgCam && G.camReady && video.readyState >= 2;
+// Video phủ kín màn hình kiểu "cover", lật gương
+function camCover() {
+  const vw = video.videoWidth || 4, vh = video.videoHeight || 3, s = Math.max(W / vw, H / vh);
+  const dw = vw * s, dh = vh * s;
+  return { dw, dh, ox: (W - dw) / 2, oy: (H - dh) / 2 };
+}
+// Điểm mốc MediaPipe -> toạ độ màn hình, khớp đúng với hình camera đang vẽ
+function camToScreen(p) { const c = camCover(); return [c.ox + (1 - p.x) * c.dw, c.oy + p.y * c.dh]; }
+function drawCamBG(dim = .12) {
+  const c = camCover();
+  ctx.save(); ctx.translate(W, 0); ctx.scale(-1, 1); ctx.drawImage(video, c.ox, c.oy, c.dw, c.dh); ctx.restore();
+  if (dim) { ctx.fillStyle = `rgba(0,0,0,${dim})`; ctx.fillRect(0, 0, W, H); }
+}
+
 // ---------- Hiệu ứng ----------
 let PARTS = [], TEXTS = [];
 function burst(x, y, n = 14, colors = ['#ff5252', '#ffd740', '#69f0ae', '#40c4ff', '#ff80ab'], power = 1) {
@@ -588,6 +606,11 @@ function buildOverlays(game) {
       <button class="btn" data-b="off">🔇 Tắt nhạc</button>
     </div>
     <input type="file" id="bgmFile" accept="audio/*" style="display:none">
+    <div class="lbl">Hình nền</div>
+    <div class="row" id="bgRow">
+      <button class="btn" data-bg="cam">📷 Hình camera</button>
+      <button class="btn" data-bg="game">🎨 Nền trò chơi</button>
+    </div>
     <div id="mExtra"></div>
     <button class="btn go" id="go">Bắt đầu ▶</button>
     <div id="status"></div>
@@ -735,6 +758,9 @@ function boot(game) {
     BGM.stop(); BGM.fileEl = new Audio(URL.createObjectURL(f)); BGM.fileEl.loop = true; BGM.setMode('file');
     $('bgmFileBtn').textContent = '📁 ' + (f.name.length > 22 ? f.name.slice(0, 20) + '…' : f.name); selB();
   };
+  const selBg = () => document.querySelectorAll('#bgRow .btn').forEach(b => b.classList.toggle('sel', (b.dataset.bg === 'cam') === G.bgCam));
+  document.querySelectorAll('#bgRow .btn').forEach(b => b.onclick = () => { G.bgCam = b.dataset.bg === 'cam'; store.set('kg_bg', b.dataset.bg); selBg(); });
+  selBg();
   if (BGM.mode === 'file') BGM.setMode('builtin');   // file nhạc không giữ được qua lần tải trang
   selB();
   $('go').onclick = startGame;

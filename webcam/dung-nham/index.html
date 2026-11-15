@@ -36,7 +36,7 @@ const GAME = {
   start() { this.nextRound(); },
   colW() { return W / COLS; },
   // vị trí bé trên sàn (toạ độ màn hình), null nếu không thấy
-  mapCam(p) { return [W * (.5 + ((1 - p.x) - .5) * 1.15), H * (.5 + (p.y - .5) * 1.05)]; },
+  mapCam(p) { if (useCamBG()) return camToScreen(p); return [W * (.5 + ((1 - p.x) - .5) * 1.15), H * (.5 + (p.y - .5) * 1.05)]; },
   playerX(i) {
     const t = TR[i];
     if (G.camReady) {
@@ -125,7 +125,17 @@ const GAME = {
   // ---------- vẽ ----------
   draw(dt) {
     const N = this.N, cw = this.colW(), top = H * .12, ph = this.phase;
-    // nền đá
+    const cam = useCamBG(), A = cam ? .75 : 1;   // nền camera: lửa trong hơn để bé vẫn thấy mình
+    if (cam) {
+      // sàn nhà thật: chỉ kẻ vạch chia 4 ô lên hình camera
+      drawCamBG(.08);
+      for (let c = 0; c < COLS; c++) {
+        const x = c * cw;
+        ctx.fillStyle = c % 2 ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.05)'; ctx.fillRect(x, top, cw, H - top);
+        if (c) { ctx.setLineDash([18, 14]); ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, H); ctx.stroke(); ctx.setLineDash([]); }
+        outlined(String(c + 1), x + cw / 2, H - H * .05, H * .05, 'rgba(255,255,255,.85)', 'rgba(0,0,0,.35)');
+      }
+    } else {
     ctx.fillStyle = '#5d4037'; ctx.fillRect(0, 0, W, H);
     for (let c = 0; c < COLS; c++) {
       const x = c * cw;
@@ -136,11 +146,12 @@ const GAME = {
       for (let y = top + 4; y < H; y += cw * .5) { ctx.beginPath(); ctx.moveTo(x + 4, y); ctx.lineTo(x + cw - 4, y); ctx.stroke(); }
       outlined(String(c + 1), x + cw / 2, H - H * .05, H * .045, 'rgba(93,64,55,.35)', 'rgba(255,255,255,0)');
     }
+    }
     if (ph) {
       const p = Math.min(1, ph.t / ph.dur), x = ph.col * cw;
       if (ph.kind === 'heat') {
         const blink = .5 + .5 * Math.sin(G.t * (6 + p * 18));
-        const a = .15 + p * .5 + blink * .15 * p;
+        const a = (.15 + p * .5 + blink * .15 * p) * A;
         const g = ctx.createLinearGradient(0, H, 0, top + (H - top) * (.6 - p * .6));
         g.addColorStop(0, `rgba(255,${Math.round(170 - p * 140)},0,${a})`); g.addColorStop(1, 'rgba(255,210,0,0)');
         ctx.fillStyle = g; ctx.fillRect(x + 4, top + 4, cw - 8, H - top - 8);
@@ -160,7 +171,7 @@ const GAME = {
       } else {
         const fade = ph.kind === 'cool' ? 1 - p : 1;
         const g = ctx.createLinearGradient(0, H, 0, top);
-        g.addColorStop(0, `rgba(255,60,0,${.95 * fade})`); g.addColorStop(.5, `rgba(255,120,0,${.8 * fade})`); g.addColorStop(1, `rgba(255,190,0,${.55 * fade})`);
+        g.addColorStop(0, `rgba(255,60,0,${.95 * fade * A})`); g.addColorStop(.5, `rgba(255,120,0,${.8 * fade * A})`); g.addColorStop(1, `rgba(255,190,0,${.55 * fade * A})`);
         ctx.fillStyle = g; ctx.fillRect(x + 4, top + 4, cw - 8, H - top - 8);
         ctx.fillStyle = `rgba(255,235,130,${.65 * fade})`;
         for (let k = 0; k < 7; k++) {
@@ -184,7 +195,14 @@ const GAME = {
       const col = N > 1 ? COLORS[i] : '#ff8a3d';
       const burnt = this.burnedNow[i];
       if (G.camReady) {
-        if (TR[i].seen && TR[i].lm) drawSkel(TR[i].lm, p => this.mapCam(p), burnt ? '#d50000' : col, H * .014);
+        if (TR[i].seen && TR[i].lm) {
+          if (!cam) drawSkel(TR[i].lm, p => this.mapCam(p), burnt ? '#d50000' : col, H * .014);
+          else {   // vòng màu dưới chân để biết ai là P1/P2
+            const lm = TR[i].lm, [fx, fy] = this.mapCam({ x: (lm[23].x + lm[24].x) / 2, y: Math.max(lm[27].y, lm[28].y) });
+            ctx.strokeStyle = burnt ? '#d50000' : col; ctx.lineWidth = H * .01;
+            ctx.beginPath(); ctx.ellipse(fx, Math.min(fy, H - H * .03), H * .07, H * .022, 0, 0, 7); ctx.stroke();
+          }
+        }
       } else {
         const x = this.playerX(i);
         ctx.font = emojiFont(H * .16); ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';

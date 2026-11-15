@@ -39,7 +39,7 @@ const GAME = {
     burst(b.x, b.y, b.gold ? 26 : 14, b.gold ? ['#ffd54f', '#fff59d', '#ffffff'] : [b.color, '#ffffff', b.color], .9);
     floatText(b.x, b.y - b.r, '+' + pts, this.N > 1 ? DARKS[i] : '#e65100', .06);
   },
-  mapCam(p) { return [W * (.5 + ((1 - p.x) - .5) * 1.12), H * (.5 + (p.y - .5) * 1.08)]; },
+  mapCam(p) { if (useCamBG()) return camToScreen(p); return [W * (.5 + ((1 - p.x) - .5) * 1.12), H * (.5 + (p.y - .5) * 1.08)]; },
   update(dt) {
     this.time -= dt;
     if (this.time <= 0) { this.time = 0; return this.finish(); }
@@ -103,13 +103,16 @@ const GAME = {
   },
   draw() {
     const N = this.N;
-    const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#7cc8ff'); g.addColorStop(1, '#e8f7ff');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#ffe066'; ctx.beginPath(); ctx.arc(W * .08, H * .14, H * .06, 0, 7); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,.85)';
-    for (let k = 0; k < 4; k++) {
-      const cx = ((k * W * .3 + G.t * W * .015) % (W * 1.2)) - W * .1, cy = H * (.12 + (k % 2) * .1), r = H * .05;
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.arc(cx + r * 1.2, cy - r * .4, r * 1.2, 0, 7); ctx.arc(cx + r * 2.4, cy, r * .9, 0, 7); ctx.fill();
+    if (useCamBG()) drawCamBG(.05);
+    else {
+      const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#7cc8ff'); g.addColorStop(1, '#e8f7ff');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#ffe066'; ctx.beginPath(); ctx.arc(W * .08, H * .14, H * .06, 0, 7); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.85)';
+      for (let k = 0; k < 4; k++) {
+        const cx = ((k * W * .3 + G.t * W * .015) % (W * 1.2)) - W * .1, cy = H * (.12 + (k % 2) * .1), r = H * .05;
+        ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.arc(cx + r * 1.2, cy - r * .4, r * 1.2, 0, 7); ctx.arc(cx + r * 2.4, cy, r * .9, 0, 7); ctx.fill();
+      }
     }
     // ô màu từng bé
     if (N > 1) {
@@ -120,7 +123,7 @@ const GAME = {
       }
     }
     // người que mờ
-    for (let i = 0; i < N; i++) if (TR[i].seen && TR[i].lm) drawSkel(TR[i].lm, p => this.mapCam(p), (N > 1 ? COLORS[i] : '#ff8a3d') + '55', H * .012);
+    if (!useCamBG()) for (let i = 0; i < N; i++) if (TR[i].seen && TR[i].lm) drawSkel(TR[i].lm, p => this.mapCam(p), (N > 1 ? COLORS[i] : '#ff8a3d') + '55', H * .012);
     for (const b of this.b) this.drawBalloon(b);
     // bàn tay
     for (const h of this.hands) {
