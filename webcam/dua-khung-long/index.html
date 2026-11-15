@@ -23,8 +23,8 @@ const SOLO = { body: '#43a047', dark: '#2e7d32', belly: '#dcedc8', kind: 'rex' }
 
 const GAME = {
   title: 'Đua Khủng Long',
-  desc: '<b>Chạy tại chỗ</b> thật nhanh — nâng gối lên cao — để khủng long của con chạy về đích! 🦖<br>Ai về đích trước thắng. Hết 60 giây chưa ai về thì ai đi xa hơn thắng.',
-  keys: 'Không có camera: A/S bấm xen kẽ = P1 chạy · K/L = P2 chạy',
+  desc: '<b>Chạy tại chỗ, nhún nhảy, vung tay</b> — cử động càng mạnh khủng long chạy càng nhanh! 🦖<br>Ai về đích trước thắng. Hết 60 giây chưa ai về thì ai đi xa hơn thắng.',
+  keys: '↑/↓ = độ nhạy (khủng long chạy nhanh/chậm hơn với cùng cử động) · Không có camera: A/S bấm xen kẽ = P1 chạy · K/L = P2 chạy',
   tune: 'dino',
   camOff: true,
   DUR: 60, TRACK: 100,        // 100 mét
@@ -32,16 +32,38 @@ const GAME = {
   menuInit() {},
   reset(N) {
     this.N = N; this.time = this.DUR; this.fast = false; this.over = false; this.endT = 0;
-    this.p = [...Array(N)].map(() => ({ d: 0, v: 0, phase: 0, steps: 0, fin: null, flash: 0, dust: 0 }));
+    this.p = [...Array(N)].map(() => ({ d: 0, v: 0, phase: 0, steps: 0, fin: null, flash: 0, dust: 0, act: 0, lastLm: null, lastT: 0 }));
     this.scroll = 0;
     BGM.setFast(false);
   },
   onStep(i, n) {
     if (G.state !== 'play' || this.over) return;
     const p = this.p[i]; if (!p || p.fin !== null) return;
-    p.v = Math.min(this.VMAX, p.v + this.BOOST * n);
+    p.v = Math.min(this.VMAX, p.v + this.BOOST * .6 * n);    // nâng gối: thưởng thêm, cử động chung mới là chính
     p.steps += n; p.flash = .15;
     tone(i === 0 ? 150 : 190, .06, 'sine', .08, 90);          // tiếng bước chân khẽ
+  },
+  // Đo độ cử động (theo thân người/giây) của các khớp, ra tốc độ khủng long
+  ACT_PTS: [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28],
+  activity(i, dt) {
+    const p = this.p[i], t = TR[i];
+    if (!G.camReady || !t.seen || !t.lm) { p.act *= Math.pow(.2, dt); p.lastLm = null; return 0; }
+    if (t.lm !== p.lastLm) {
+      const now = performance.now() / 1000, lm = t.lm, pv = p.lastLm;
+      if (pv && now - p.lastT < .5) {
+        const vis = (q) => (q.visibility ?? 1) > .5;
+        let s = 0, n = 0;
+        for (const k of this.ACT_PTS) if (vis(lm[k]) && vis(pv[k])) { s += Math.hypot(lm[k].x - pv[k].x, lm[k].y - pv[k].y); n++; }
+        // thước đo = chiều dài thân (vai -> hông); đứng sát camera không thấy hông thì dùng bề ngang vai
+        const scale = Math.max(.08, t.torso, Math.abs(lm[11].x - lm[12].x) * 1.3);
+        const a = n ? s / n / scale / Math.max(.016, now - p.lastT) : 0;
+        p.act = p.act * .6 + a * .4;
+      }
+      p.lastLm = lm; p.lastT = now;
+    }
+    // đứng yên (rung nhẹ của máy nhận diện) không tính; G.sens chỉnh bằng ↑/↓
+    const gain = 2.6 * (.20 / G.sens);
+    return clamp((p.act - .45) * gain, 0, this.VMAX);
   },
   onKey(c) {
     if (G.camReady) return;
@@ -60,7 +82,11 @@ const GAME = {
     for (let i = 0; i < this.N; i++) {
       const p = this.p[i];
       if (p.fin !== null) continue;
-      p.v = Math.max(0, p.v - p.v * this.DRAG * dt - .15 * dt);
+      // Cử động cả người -> tốc độ mong muốn. Bé chỉ cần nhún, lắc, vung tay.
+      // Đang cử động thì tiến dần tới tốc độ đó; ngừng thì chậm dần.
+      const tv = this.activity(i, dt);
+      if (tv > p.v) p.v += (tv - p.v) * Math.min(1, dt * 3);
+      else p.v = Math.max(tv, p.v - p.v * this.DRAG * dt - .15 * dt);
       p.d += p.v * dt;
       if (p.d >= this.TRACK) {
         p.d = this.TRACK; p.fin = this.DUR - this.time;
@@ -173,6 +199,7 @@ const GAME = {
     // thanh trên
     ctx.fillStyle = 'rgba(255,255,255,.75)'; roundRect(W / 2 - H * .12, H * .012, H * .24, H * .085, H * .04); ctx.fill();
     outlined(`⏱ ${Math.ceil(this.time)}`, W / 2, H * .055, H * .06, this.time <= 10 ? '#e53935' : '#5d4037');
+    this.drawSens();
     if (N === 1) outlined(`🦖 ${Math.floor(this.p[0].d)}m`, H * .03, H * .055, H * .06, '#2e7d32', '#fff', 'left');
     else for (let i = 0; i < N; i++) {
       const zx = i === 0 ? W * .15 : W * .85, fs = H * .05;
@@ -180,7 +207,8 @@ const GAME = {
       outlined(`${PNAME[i]}  ${Math.floor(this.p[i].d)}m`, zx, H * .055, fs * .8, '#fff', DARKS[i]);
     }
   },
-  msgY() { return this.trackTop() - H * .03; }
+  msgY() { return this.trackTop() - H * .03; },
+  drawSens() { if (G.camReady) outlined(`Độ nhạy ${sensLevel()} (↑/↓)`, W - H * .02, H * .12, H * .022, '#333', '#fff', 'right', 'middle', 700); }
 };
 
 // ---------- Vẽ khủng long (chân chạy theo pha, nghiêng người khi chạy nhanh) ----------
