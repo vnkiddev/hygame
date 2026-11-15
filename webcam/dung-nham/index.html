@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sàn Dung Nham</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌋</text></svg>">
+<link rel="stylesheet" href="../lib/core.css">
+</head>
+<body>
+<script src="../lib/core.js"></script>
+<script>
+// ================= SÀN DUNG NHAM =================
+// Sàn chia 4 ô. Mỗi lượt một ô nóng dần (đổi màu, kêu tích tắc dồn dập) rồi
+// bốc lửa đúng 4 giây — ai còn đứng trong ô đó là bị bỏng. Qua lượt mà không
+// bị bỏng thì được 1 điểm. Hai bé chạy khắp sàn, không chia ô riêng.
+
+const COLS = 4;
+const GAME = {
+  title: 'Sàn Dung Nham',
+  desc: 'Sàn chia <b>4 ô</b>. Ô nào <b>nóng đỏ lên</b> thì chạy ngay sang ô khác! 🏃<br>Ô đó sẽ bốc lửa 4 giây 🔥 · Mỗi lượt không bị bỏng được +1. 10 lượt, ai nhiều điểm nhất thắng!',
+  keys: 'Không có camera: bấm vào ô để P1 chạy tới · A/S = P1 trái/phải · K/L = P2 trái/phải',
+  tune: 'lava',
+  camOff: true,
+  freeRoam: true,
+  ROUNDS: 10, BURN: 4, COOL: 1.3,
+  menuInit() { cv.addEventListener('pointerdown', e => this.click(e.clientX)); },
+  reset(N) {
+    this.N = N; this.round = 0; this.score = Array(N).fill(0); this.best = 0;
+    this.phase = null; this.lastCols = []; this.flames = []; this.burnedNow = Array(N).fill(false);
+    this.ouchT = Array(N).fill(0); this.banner = null;
+    // vị trí khi chơi không camera: mỗi bé đứng một ô
+    this.kcol = N === 1 ? [1] : [0, 3];
+    BGM.setFast(false);
+  },
+  start() { this.nextRound(); },
+  colW() { return W / COLS; },
+  // vị trí bé trên sàn (toạ độ màn hình), null nếu không thấy
+  mapCam(p) { return [W * (.5 + ((1 - p.x) - .5) * 1.15), H * (.5 + (p.y - .5) * 1.05)]; },
+  playerX(i) {
+    const t = TR[i];
+    if (G.camReady) {
+      if (!t.seen || !t.lm) return null;
+      const lm = t.lm, hx = (lm[23].x + lm[24].x) / 2, hy = (lm[23].y + lm[24].y) / 2;
+      return clamp(this.mapCam({ x: hx, y: hy })[0], 1, W - 1);
+    }
+    return (this.kcol[i] + .5) * this.colW();
+  },
+  colOf(x) { return clamp(Math.floor(x / this.colW()), 0, COLS - 1); },
+  click(x) { if (G.state === 'play' && !G.camReady) this.kcol[0] = this.colOf(x); },
+  onKey(c) {
+    if (G.camReady) return;
+    const mv = { KeyA: [0, -1], KeyS: [0, 1], KeyK: [1, -1], KeyL: [1, 1] }[c];
+    if (mv && mv[0] < this.N) this.kcol[mv[0]] = clamp(this.kcol[mv[0]] + mv[1], 0, COLS - 1);
+  },
+  nextRound() {
+    this.round++;
+    if (this.round > this.ROUNDS) return this.finish();
+    const pool = [...Array(COLS).keys()].filter(c => !this.lastCols.includes(c));
+    const c = pool[Math.random() * pool.length | 0];
+    this.lastCols = [c];
+    // lượt đầu nóng 3.4 giây, càng về sau càng nhanh (tối thiểu 1.7 giây)
+    const heat = Math.max(1.7, 3.4 - (this.round - 1) * .2);
+    this.phase = { kind: 'heat', col: c, t: 0, dur: heat, tick: 0, burned: Array(this.N).fill(false), seen: Array(this.N).fill(false) };
+    BGM.setFast(false);
+  },
+  update(dt) {
+    const ph = this.phase; if (!ph) return;
+    ph.t += dt;
+    const p = Math.min(1, ph.t / ph.dur);
+    for (let i = 0; i < this.N; i++) this.ouchT[i] = Math.max(0, this.ouchT[i] - dt);
+    if (ph.kind === 'heat') {
+      ph.tick -= dt;
+      if (ph.tick <= 0) { SFX.heat(p); ph.tick = .42 - p * .32; }
+      if (p >= 1) { ph.kind = 'burn'; ph.t = 0; ph.dur = this.BURN; SFX.whoosh(); BGM.setFast(true); }
+    } else if (ph.kind === 'burn') {
+      const cw = this.colW();
+      for (let k = 0; k < 2; k++) this.flames.push({ x: ph.col * cw + Math.random() * cw, y: H + 10, vy: -H * rand(.5, 1), r: H * rand(.03, .06), life: 1 });
+      for (let i = 0; i < this.N; i++) {
+        const x = this.playerX(i);
+        const inLava = x !== null && this.colOf(x) === ph.col;
+        this.burnedNow[i] = inLava;
+        if (x !== null) ph.seen[i] = true;
+        if (inLava) {
+          ph.burned[i] = true;
+          if (this.ouchT[i] <= 0) {
+            this.ouchT[i] = .8; SFX.sizzle();
+            const y = H * .55;
+            floatText(x, y - H * .15, 'Á nóng! 🔥', '#e53935', .06);
+            burst(x, y, 12, ['#ff3d00', '#ffb300', '#ffe082'], .8);
+          }
+        }
+      }
+      if (p >= 1) {
+        ph.kind = 'cool'; ph.t = 0; ph.dur = this.COOL; BGM.setFast(false);
+        this.burnedNow.fill(false);
+        let anySafe = false;
+        for (let i = 0; i < this.N; i++) {
+          // ra khỏi khung hình để trốn lửa thì không tính
+          if (!ph.burned[i] && ph.seen[i]) {
+            this.score[i]++; anySafe = true;
+            const x = this.playerX(i) ?? W / 2;
+            floatText(x, H * .4, '+1 ⭐', this.N > 1 ? DARKS[i] : '#2e7d32', .065);
+          }
+        }
+        if (anySafe) SFX.safe();
+        this.banner = { txt: ph.burned.every(b => !b) ? 'An toàn! 🎉' : ph.burned.every(b => b) ? 'Ối, bị bỏng rồi! 🔥' : '', t: 1.2 };
+      }
+    } else if (ph.kind === 'cool' && p >= 1) {
+      this.nextRound();
+    }
+    if (this.banner) { this.banner.t -= dt; if (this.banner.t <= 0) this.banner = null; }
+  },
+  finish() {
+    this.phase = null;
+    if (this.N === 1) {
+      const sc = this.score[0], best = store.get('kg_lava_best', 0);
+      if (sc > best) store.set('kg_lava_best', sc);
+      return endGame(sc >= this.ROUNDS ? '🏆 Không bỏng lần nào!' : '🎉 Xong rồi!', [{ i: 0, text: `Thoát được ${sc}/${this.ROUNDS} lượt 🌋` }],
+        sc > best ? '🏆 Kỷ lục mới!' : `Kỷ lục: ${best}/${this.ROUNDS}`);
+    }
+    endVersus(this.score, s => `${s}/${this.ROUNDS} lượt`);
+  },
+
+  // ---------- vẽ ----------
+  draw(dt) {
+    const N = this.N, cw = this.colW(), top = H * .12, ph = this.phase;
+    // nền đá
+    ctx.fillStyle = '#5d4037'; ctx.fillRect(0, 0, W, H);
+    for (let c = 0; c < COLS; c++) {
+      const x = c * cw;
+      ctx.fillStyle = c % 2 ? '#e9dcc0' : '#f3e8cf';
+      ctx.fillRect(x + 4, top + 4, cw - 8, H - top - 8);
+      // gạch lát
+      ctx.strokeStyle = 'rgba(120,90,60,.18)'; ctx.lineWidth = 2;
+      for (let y = top + 4; y < H; y += cw * .5) { ctx.beginPath(); ctx.moveTo(x + 4, y); ctx.lineTo(x + cw - 4, y); ctx.stroke(); }
+      outlined(String(c + 1), x + cw / 2, H - H * .05, H * .045, 'rgba(93,64,55,.35)', 'rgba(255,255,255,0)');
+    }
+    if (ph) {
+      const p = Math.min(1, ph.t / ph.dur), x = ph.col * cw;
+      if (ph.kind === 'heat') {
+        const blink = .5 + .5 * Math.sin(G.t * (6 + p * 18));
+        const a = .15 + p * .5 + blink * .15 * p;
+        const g = ctx.createLinearGradient(0, H, 0, top + (H - top) * (.6 - p * .6));
+        g.addColorStop(0, `rgba(255,${Math.round(170 - p * 140)},0,${a})`); g.addColorStop(1, 'rgba(255,210,0,0)');
+        ctx.fillStyle = g; ctx.fillRect(x + 4, top + 4, cw - 8, H - top - 8);
+        ctx.strokeStyle = `rgba(255,120,0,${.3 + p * .6})`; ctx.lineWidth = 6 + blink * 6;
+        ctx.strokeRect(x + 7, top + 7, cw - 14, H - top - 14);
+        // sóng nhiệt
+        ctx.strokeStyle = `rgba(255,255,255,${.25 + p * .35})`; ctx.lineWidth = 3;
+        for (let k = 0; k < 3; k++) {
+          const yy = H - ((G.t * H * (.25 + p * .4) + k * H / 3) % (H - top));
+          ctx.beginPath();
+          for (let xx = 8; xx <= cw - 8; xx += 10) ctx.lineTo(x + xx, yy + Math.sin(xx / 18 + G.t * 8) * 6);
+          ctx.stroke();
+        }
+        ctx.font = emojiFont(Math.min(cw, H) * (.2 + p * .08)); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('⚠️', x + cw / 2, top + H * .14);
+        outlined('NÓNG!', x + cw / 2, top + H * .27, Math.min(cw * .2, H * .06), '#e65100');
+      } else {
+        const fade = ph.kind === 'cool' ? 1 - p : 1;
+        const g = ctx.createLinearGradient(0, H, 0, top);
+        g.addColorStop(0, `rgba(255,60,0,${.95 * fade})`); g.addColorStop(.5, `rgba(255,120,0,${.8 * fade})`); g.addColorStop(1, `rgba(255,190,0,${.55 * fade})`);
+        ctx.fillStyle = g; ctx.fillRect(x + 4, top + 4, cw - 8, H - top - 8);
+        ctx.fillStyle = `rgba(255,235,130,${.65 * fade})`;
+        for (let k = 0; k < 7; k++) {
+          const bx = x + 14 + ((k * 97 + 31) % Math.max(1, cw - 28)), by = H - ((G.t * H * .25 + k * 137) % ((H - top) * .7));
+          ctx.beginPath(); ctx.arc(bx, by, H * (.008 + (k % 3) * .006), 0, 7); ctx.fill();
+        }
+        if (ph.kind === 'burn') outlined(`🔥 ${Math.ceil(this.BURN - ph.t)}`, x + cw / 2, top + H * .14, Math.min(cw * .26, H * .1), '#fff3c4', '#bf360c');
+      }
+    }
+    // lửa bốc lên
+    for (let k = this.flames.length - 1; k >= 0; k--) {
+      const f = this.flames[k];
+      f.y += f.vy * dt; f.x += Math.sin(f.y / 30) * 1.2; f.life -= dt * 1.1; f.r *= .99;
+      if (f.life <= 0) { this.flames.splice(k, 1); continue; }
+      const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.r);
+      g.addColorStop(0, `rgba(255,240,150,${f.life})`); g.addColorStop(.5, `rgba(255,120,0,${f.life * .8})`); g.addColorStop(1, 'rgba(255,40,0,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, 7); ctx.fill();
+    }
+    // các bé
+    for (let i = 0; i < N; i++) {
+      const col = N > 1 ? COLORS[i] : '#ff8a3d';
+      const burnt = this.burnedNow[i];
+      if (G.camReady) {
+        if (TR[i].seen && TR[i].lm) drawSkel(TR[i].lm, p => this.mapCam(p), burnt ? '#d50000' : col, H * .014);
+      } else {
+        const x = this.playerX(i);
+        ctx.font = emojiFont(H * .16); ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+        ctx.fillText(burnt ? '🥵' : '🧒', x, H * .82);
+        ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(x, H * .83, H * .06, H * .018, 0, 0, 7); ctx.fill();
+      }
+      const x = this.playerX(i);
+      if (x !== null && ph) {
+        let face = '😀';
+        if (this.colOf(x) === ph.col) face = ph.kind === 'heat' ? '😰' : ph.kind === 'burn' ? '🥵' : '😀';
+        if (G.camReady) {
+          const lm = TR[i].lm, [hx, hy] = this.mapCam(lm[0]);
+          ctx.font = emojiFont(H * .07); ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+          ctx.fillText(face, hx, hy - H * .03);
+        }
+      }
+      if (G.camReady && G.state === 'play' && !TR[i].seen) outlined(N > 1 ? `Chưa thấy ${PNAME[i]}` : 'Chưa thấy bé', W / 2, H * (.5 + i * .07), H * .04, '#fff', '#000');
+    }
+    // thanh trên
+    ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fillRect(0, 0, W, top);
+    outlined(`🌋 Lượt ${clamp(this.round, 1, this.ROUNDS)}/${this.ROUNDS}`, W / 2, top / 2, H * .055, '#bf360c');
+    if (N === 1) outlined(`⭐ ${this.score[0]}`, H * .03, top / 2, H * .06, '#e65100', '#fff', 'left');
+    else for (let i = 0; i < N; i++) {
+      const zx = i === 0 ? W * .14 : W * .86, fs = H * .05;
+      roundRect(zx - fs * 2.2, top / 2 - fs * .7, fs * 4.4, fs * 1.4, fs * .7); ctx.fillStyle = COLORS[i]; ctx.fill();
+      outlined(`${PNAME[i]}  ${this.score[i]}`, zx, top / 2, fs * .85, '#fff', DARKS[i]);
+    }
+    if (this.banner && this.banner.txt) outlined(this.banner.txt, W / 2, H * .45, H * .08, '#ff6f00');
+  },
+  msgY() { return H - H * .1; }
+};
+
+boot(GAME);
+</script>
+</body>
+</html>

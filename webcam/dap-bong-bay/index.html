@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Đập Bóng Bay</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎈</text></svg>">
+<link rel="stylesheet" href="../lib/core.css">
+</head>
+<body>
+<script src="../lib/core.js"></script>
+<script>
+// ================= ĐẬP BÓNG BAY THEO MÀU =================
+const RAINBOW = ['#ff5a5f', '#3d8bff', '#22c55e', '#ffb300', '#ab47bc', '#ff7043'];
+
+const GAME = {
+  title: 'Đập Bóng Bay',
+  desc: 'Mỗi bé 1 màu. <b>Vung tay đập</b> bóng đúng màu của mình 🎈<br>Bóng vàng ⭐ ai đập cũng được +3. Hết 60 giây, ai nhiều điểm nhất thắng!',
+  keys: 'Click chuột vào bóng = đập thử',
+  tune: 'balloon',
+  camOff: true,          // đã có hình người que trên màn hình, không cần camera nhỏ
+  DUR: 60,
+  reset(N) {
+    this.N = N; this.time = this.DUR; this.b = []; this.spawnT = .3; this.score = Array(N).fill(0); this.hands = []; this.fast = false; BGM.setFast(false);
+  },
+  spawn() {
+    const N = this.N, gold = Math.random() < .07, owner = gold ? -1 : (Math.random() * N | 0);
+    const r = H * rand(.065, .085);
+    let x;
+    if (gold || N === 1) x = W * rand(.08, .92);
+    else { const zw = W / N; x = zw * owner + zw * rand(.18, .82); }
+    const color = gold ? '#ffd54f' : N === 1 ? RAINBOW[Math.random() * RAINBOW.length | 0] : COLORS[owner];
+    this.b.push({ x, y: H + r * 1.5, r, vy: H * rand(.12, .2), vx: 0, owner, gold, color, wob: Math.random() * 6, hit: 0 });
+  },
+  canPop(b, i) { return this.N === 1 || b.gold || b.owner === i; },
+  pop(b, i) {
+    b.dead = true; const pts = b.gold ? 3 : 1; this.score[i] += pts;
+    b.gold ? SFX.bonus() : SFX.pop();
+    burst(b.x, b.y, b.gold ? 26 : 14, b.gold ? ['#ffd54f', '#fff59d', '#ffffff'] : [b.color, '#ffffff', b.color], .9);
+    floatText(b.x, b.y - b.r, '+' + pts, this.N > 1 ? DARKS[i] : '#e65100', .06);
+  },
+  mapCam(p) { return [W * (.5 + ((1 - p.x) - .5) * 1.12), H * (.5 + (p.y - .5) * 1.08)]; },
+  update(dt) {
+    this.time -= dt;
+    if (this.time <= 0) { this.time = 0; return this.finish(); }
+    if (!this.fast && this.time <= 10) { this.fast = true; BGM.setFast(true); floatText(W / 2, H * .3, '⚡ Nhanh lên!', '#e53935', .08); }
+    this.spawnT -= dt;
+    if (this.spawnT <= 0) { this.spawn(); this.spawnT = rand(.75, 1.15) / (1 + (this.N - 1) * .8); }
+    // tay
+    this.hands = [];
+    for (let i = 0; i < this.N; i++) {
+      const t = TR[i]; if (!t.seen || !t.lm) continue;
+      for (const [w, f] of [[15, 19], [16, 20]]) {
+        const a = t.lm[w], c = t.lm[f];
+        if ((a.visibility ?? 1) < .3) continue;
+        const [x, y] = this.mapCam({ x: (a.x + c.x) / 2, y: (a.y + c.y) / 2 });
+        this.hands.push({ i, x, y });
+      }
+    }
+    for (const b of this.b) {
+      b.y -= b.vy * dt; b.x += b.vx * dt + Math.sin(G.t * 1.6 + b.wob) * H * .03 * dt; b.vx *= Math.pow(.2, dt);
+      b.hit = Math.max(0, b.hit - dt);
+      for (const h of this.hands) {
+        if (b.dead) break;
+        const d = Math.hypot(h.x - b.x, h.y - b.y);
+        if (d < b.r + H * .03) {
+          if (this.canPop(b, h.i)) this.pop(b, h.i);
+          else if (b.hit <= 0) { b.vx += (b.x - h.x > 0 ? 1 : -1) * H * .6; b.hit = .5; }
+        }
+      }
+    }
+    this.b = this.b.filter(b => !b.dead && b.y > -b.r * 3);
+  },
+  click(x, y) {
+    if (G.state !== 'play') return;
+    for (const b of this.b) if (!b.dead && Math.hypot(x - b.x, y - b.y) < b.r * 1.1) { this.pop(b, b.owner >= 0 ? b.owner : 0); return; }
+  },
+  finish() {
+    if (this.N === 1) {
+      const sc = this.score[0], best = store.get('kg_balloon_best', 0);
+      if (sc > best) store.set('kg_balloon_best', sc);
+      return endGame('🎉 Hết giờ!', [{ i: 0, text: `Đập được ${sc} điểm 🎈` }], sc > best ? '🏆 Kỷ lục mới!' : `Kỷ lục: ${best} điểm`);
+    }
+    const rows = this.score.map((sc, i) => ({ i, sc })).sort((a, b) => b.sc - a.sc).map(r => ({ i: r.i, text: `${r.sc} điểm` }));
+    const mx = Math.max(...this.score), ties = this.score.filter(v => v === mx).length;
+    endGame(ties > 1 ? '🤝 Hòa nhau rồi!' : `🏆 ${PNAME[rows[0].i]} thắng!`, rows);
+  },
+  drawBalloon(b) {
+    const { x, y, r } = b, sq = 1 + Math.sin(G.t * 4 + b.wob) * .02;
+    // dây
+    ctx.strokeStyle = 'rgba(80,80,80,.6)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x, y + r * 1.15);
+    for (let k = 1; k <= 6; k++) ctx.lineTo(x + Math.sin(G.t * 3 + k + b.wob) * r * .12, y + r * 1.15 + k * r * .25);
+    ctx.stroke();
+    // bóng
+    ctx.fillStyle = b.color;
+    ctx.beginPath(); ctx.ellipse(x, y, r * sq, r * 1.15 / sq, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x - r * .12, y + r * 1.22); ctx.lineTo(x + r * .12, y + r * 1.22); ctx.lineTo(x, y + r * 1.08); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.45)';
+    ctx.beginPath(); ctx.ellipse(x - r * .35, y - r * .45, r * .18, r * .3, -.5, 0, 7); ctx.fill();
+    if (b.gold) { ctx.font = emojiFont(r * .9); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⭐', x, y); }
+    else if (this.N > 1) outlined(PNAME[b.owner], x, y + r * .1, r * .55, '#fff', DARKS[b.owner]);
+  },
+  draw() {
+    const N = this.N;
+    const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#7cc8ff'); g.addColorStop(1, '#e8f7ff');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#ffe066'; ctx.beginPath(); ctx.arc(W * .08, H * .14, H * .06, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    for (let k = 0; k < 4; k++) {
+      const cx = ((k * W * .3 + G.t * W * .015) % (W * 1.2)) - W * .1, cy = H * (.12 + (k % 2) * .1), r = H * .05;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.arc(cx + r * 1.2, cy - r * .4, r * 1.2, 0, 7); ctx.arc(cx + r * 2.4, cy, r * .9, 0, 7); ctx.fill();
+    }
+    // ô màu từng bé
+    if (N > 1) {
+      const zw = W / N;
+      for (let i = 0; i < N; i++) {
+        ctx.fillStyle = COLORS[i] + '1c'; ctx.fillRect(i * zw, 0, zw, H);
+        if (i) { ctx.setLineDash([12, 10]); ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(i * zw, 0); ctx.lineTo(i * zw, H); ctx.stroke(); ctx.setLineDash([]); }
+      }
+    }
+    // người que mờ
+    for (let i = 0; i < N; i++) if (TR[i].seen && TR[i].lm) drawSkel(TR[i].lm, p => this.mapCam(p), (N > 1 ? COLORS[i] : '#ff8a3d') + '55', H * .012);
+    for (const b of this.b) this.drawBalloon(b);
+    // bàn tay
+    for (const h of this.hands) {
+      ctx.fillStyle = (N > 1 ? COLORS[h.i] : '#ff8a3d') + 'cc'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(h.x, h.y, H * .035, 0, 7); ctx.fill(); ctx.stroke();
+      ctx.font = emojiFont(H * .035); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('✋', h.x, h.y);
+    }
+    // điểm + giờ
+    outlined(`⏱ ${Math.ceil(this.time)}`, W / 2, H * .055, H * .06, this.time <= 10 ? '#e53935' : '#1e3a5f');
+    if (N === 1) outlined(`🎈 ${this.score[0]}`, H * .03, H * .055, H * .07, '#e65100', '#fff', 'left');
+    else for (let i = 0; i < N; i++) {
+      const zx = (i + .5) * W / N, y = H * .14, fs = H * .055;
+      roundRect(zx - fs * 2.2, y - fs * .7, fs * 4.4, fs * 1.4, fs * .7); ctx.fillStyle = COLORS[i]; ctx.fill();
+      outlined(`${PNAME[i]}  ${this.score[i]}`, zx, y, fs * .85, '#fff', DARKS[i]);
+    }
+  }
+};
+cv.addEventListener('pointerdown', e => GAME.click(e.clientX, e.clientY));
+
+boot(GAME);
+</script>
+</body>
+</html>

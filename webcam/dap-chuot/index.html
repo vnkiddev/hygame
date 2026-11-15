@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Đập Chuột Chũi</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔨</text></svg>">
+<link rel="stylesheet" href="../lib/core.css">
+</head>
+<body>
+<script src="../lib/core.js"></script>
+<script>
+// ================= ĐẬP CHUỘT CHŨI =================
+
+// ---- Vẽ chuột chũi ----
+function drawMole(x, baseY, r, pop, type, hit, t) {
+  const h = r * 1.45, w = r * 1.25, top = baseY - h * pop;
+  ctx.save();
+  if (type === 'bomb') {
+    ctx.font = emojiFont(r * 1.3); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText('💣', x, top - r * .1);
+    if (Math.sin(t * 30) > 0) { ctx.fillStyle = '#ffeb3b'; ctx.beginPath(); ctx.arc(x + r * .42, top + r * .05, r * .1, 0, 7); ctx.fill(); }
+    ctx.restore(); return;
+  }
+  const body = type === 'gold' ? '#ffca28' : '#8d6e63', dark = type === 'gold' ? '#f57f17' : '#5d4037', belly = type === 'gold' ? '#fff59d' : '#d7ccc8';
+  const sq = hit ? .85 : 1;
+  ctx.translate(x, top); ctx.scale(1 / sq, sq);
+  ctx.fillStyle = body;
+  ctx.beginPath(); ctx.ellipse(0, h * .55, w / 2, h * .6, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = belly; ctx.beginPath(); ctx.ellipse(0, h * .8, w * .3, h * .35, 0, 0, 7); ctx.fill();
+  for (const ex of [-.18, .18]) {
+    if (hit) {
+      ctx.strokeStyle = '#222'; ctx.lineWidth = r * .06;
+      const cx = ex * w, cy = h * .32, s = r * .09;
+      ctx.beginPath(); ctx.moveTo(cx - s, cy - s); ctx.lineTo(cx + s, cy + s); ctx.moveTo(cx + s, cy - s); ctx.lineTo(cx - s, cy + s); ctx.stroke();
+    } else {
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex * w, h * .32, r * .13, 0, 7); ctx.fill();
+      ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(ex * w, h * .33, r * .07, 0, 7); ctx.fill();
+    }
+  }
+  ctx.fillStyle = '#f48fb1'; ctx.beginPath(); ctx.ellipse(0, h * .47, r * .14, r * .1, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.fillRect(-r * .07, h * .55, r * .06, r * .1); ctx.fillRect(r * .01, h * .55, r * .06, r * .1);
+  ctx.fillStyle = 'rgba(255,128,128,.45)'; ctx.beginPath(); ctx.arc(-w * .3, h * .5, r * .08, 0, 7); ctx.arc(w * .3, h * .5, r * .08, 0, 7); ctx.fill();
+  ctx.fillStyle = dark; ctx.beginPath(); ctx.ellipse(-w * .3, h * .9, r * .14, r * .09, 0, 0, 7); ctx.ellipse(w * .3, h * .9, r * .14, r * .09, 0, 0, 7); ctx.fill();
+  ctx.restore();
+  if (type === 'gold') { ctx.font = emojiFont(r * .55); ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText('👑', x, top + r * .12); }
+  if (hit) {
+    for (let k = 0; k < 3; k++) { const a = t * 6 + k * 2.1; ctx.font = emojiFont(r * .28); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⭐', x + Math.cos(a) * r * .55, top - r * .05 + Math.sin(a) * r * .15); }
+  }
+}
+
+const GAME = {
+  title: 'Đập Chuột Chũi',
+  desc: 'Chuột chũi thò lên là <b>vung tay đập</b> thật nhanh! 🔨<br>Chuột 👑 vàng +3 · Đừng đập 💣 bom (−2). Hết 60 giây, ai nhiều điểm nhất thắng!',
+  keys: 'Click chuột vào con chuột chũi = đập thử',
+  tune: 'whack',
+  camOff: true,
+  DUR: 60,
+  menuInit() { cv.addEventListener('pointerdown', e => this.click(e.clientX, e.clientY)); },
+  reset(N) {
+    this.N = N; this.time = this.DUR; this.spawnT = .8; this.fast = false;
+    this.cols = N === 1 ? 3 : 2; this.rows = 2;
+    const nh = this.cols * this.rows;
+    this.p = [...Array(N)].map(() => ({ score: 0, holes: [...Array(nh)].map(() => ({ st: 'idle', t: 0, dur: 0, type: 'mole', pop: 0 })), hands: [] }));
+    BGM.setFast(false);
+  },
+  zone(i) {
+    const zw = W / this.N, top = H * .2, bottom = H * .96;
+    return { x: i * zw, w: zw, y: top, h: bottom - top };
+  },
+  hole(i, k) {
+    const z = this.zone(i), c = k % this.cols, r = Math.floor(k / this.cols);
+    const cw = z.w / this.cols, rh = z.h / this.rows;
+    const R = Math.min(cw * .32, rh * .32);
+    return { x: z.x + cw * (c + .5), y: z.y + rh * (r + .72), r: R };
+  },
+  click(x, y) {
+    if (G.state !== 'play') return;
+    const i = clamp(Math.floor(x / (W / this.N)), 0, this.N - 1);
+    this.p[i].holes.forEach((h, k) => { const c = this.hole(i, k); if (Math.hypot(x - c.x, y - (c.y - c.r * .7)) < c.r * 1.1) this.whack(i, k); });
+  },
+  whack(i, k) {
+    const p = this.p[i], h = p.holes[k];
+    if (h.st !== 'rise' && h.st !== 'up') return false;
+    const c = this.hole(i, k), my = c.y - c.r * .9;
+    if (h.type === 'bomb') {
+      p.score = Math.max(0, p.score - 2); h.st = 'hide'; h.t = 0; SFX.bad();
+      burst(c.x, my, 26, ['#424242', '#ff7043', '#ffca28', '#9e9e9e'], 1.1);
+      floatText(c.x, my - c.r * .5, '−2 💥', '#424242', this.N === 1 ? .07 : .055);
+    } else {
+      const pts = h.type === 'gold' ? 3 : 1; p.score += pts; h.st = 'hit'; h.t = 0;
+      h.type === 'gold' ? SFX.bonus() : (SFX.pop(), tone(180, .12, 'sine', .25, 70));
+      burst(c.x, my, h.type === 'gold' ? 26 : 12, h.type === 'gold' ? ['#ffd54f', '#fff59d', '#fff'] : ['#ffd54f', '#fff', '#a1887f'], .8);
+      floatText(c.x, my - c.r * .5, '+' + pts, this.N > 1 ? DARKS[i] : '#e65100', this.N === 1 ? .07 : .055);
+    }
+    return true;
+  },
+  spawn() {
+    const nh = this.cols * this.rows, k = Math.random() * nh | 0;
+    const prog = 1 - this.time / this.DUR;
+    const dur = rand(1.5, 1.9) - prog * .8;
+    const rr = Math.random(), type = rr < .09 ? 'gold' : rr < .21 ? 'bomb' : 'mole';
+    this.p.forEach(p => { const h = p.holes[k]; if (h.st === 'idle') Object.assign(h, { st: 'rise', t: 0, dur, type, pop: 0 }); });   // cùng lịch cho mọi bé
+  },
+  update(dt) {
+    this.time -= dt;
+    if (this.time <= 0) { this.time = 0; return this.finish(); }
+    if (!this.fast && this.time <= 10) { this.fast = true; BGM.setFast(true); floatText(W / 2, H * .3, '⚡ Nhanh lên!', '#e53935', .08); }
+    const prog = 1 - this.time / this.DUR;
+    this.spawnT -= dt;
+    if (this.spawnT <= 0) { this.spawn(); this.spawnT = rand(.55, .9) - prog * .25; }
+    for (let i = 0; i < this.N; i++) {
+      const p = this.p[i];
+      for (const h of p.holes) {
+        h.t += dt;
+        if (h.st === 'rise') { h.pop = Math.min(1, h.t / .15); if (h.t >= .15) { h.st = 'up'; h.t = 0; } }
+        else if (h.st === 'up') { h.pop = 1; if (h.t >= h.dur) { h.st = 'hide'; h.t = 0; } }
+        else if (h.st === 'hit') { h.pop = 1 - Math.max(0, h.t - .35) / .2; if (h.t >= .55) { h.st = 'idle'; h.pop = 0; } }
+        else if (h.st === 'hide') { h.pop = Math.max(0, 1 - h.t / .15); if (h.t >= .15) { h.st = 'idle'; h.pop = 0; } }
+      }
+      this.updateHands(i, dt);
+    }
+  },
+  updateHands(i, dt) {
+    const p = this.p[i], t = TR[i], z = this.zone(i);
+    if (!(t.seen && t.lm && t.ok)) { p.hands = []; return; }
+    const lm = t.lm, T = t.torso, vis = k => (lm[k].visibility ?? 1) > .35;
+    const sx = 1 - (lm[11].x + lm[12].x) / 2, sy = (lm[11].y + lm[12].y) / 2;
+    const now = [];
+    [[15, 19], [16, 20]].forEach(([w, ix], k) => {
+      if (!vis(w)) return;
+      const f = vis(ix) ? { x: (lm[w].x + lm[ix].x) / 2, y: (lm[w].y + lm[ix].y) / 2 } : lm[w];
+      const nx = clamp(((1 - f.x) - (sx - 1.35 * T)) / (2.7 * T), 0, 1), ny = clamp((f.y - (sy - 1.1 * T)) / (2.0 * T), 0, 1);
+      const tx = z.x + nx * z.w, ty = z.y - H * .06 + ny * (z.h + H * .06);
+      const old = p.hands.find(h => h.k === k);
+      const h = old || { k, x: tx, y: ty, sp: 0, inside: -1, swing: 0 };
+      const nxp = h.x + (tx - h.x) * .65, nyp = h.y + (ty - h.y) * .65;
+      const sp = Math.hypot(nxp - h.x, nyp - h.y) / Math.max(dt, .001);
+      h.sp = h.sp * .5 + sp * .5; h.x = nxp; h.y = nyp; h.swing = Math.max(0, h.swing - dt * 4);
+      let ins = -1;
+      p.holes.forEach((ho, kk) => { const c = this.hole(i, kk); if (Math.hypot(h.x - c.x, h.y - (c.y - c.r * .7)) < c.r * 1.15) ins = kk; });
+      const entered = ins >= 0 && ins !== h.inside;
+      if (ins >= 0 && (entered || h.sp > H * .7) && this.whack(i, ins)) h.swing = 1;
+      h.inside = ins;
+      now.push(h);
+    });
+    p.hands = now;
+  },
+  finish() {
+    if (this.N === 1) {
+      const sc = this.p[0].score, best = store.get('kg_whack_best', 0);
+      if (sc > best) store.set('kg_whack_best', sc);
+      return endGame('🎉 Hết giờ!', [{ i: 0, text: `Đập được ${sc} điểm 🔨` }], sc > best ? '🏆 Kỷ lục mới!' : `Kỷ lục: ${best} điểm`);
+    }
+    endVersus(this.p.map(p => p.score), s => `${s} điểm`);
+  },
+  draw() {
+    const N = this.N;
+    const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#9be15d'); g.addColorStop(1, '#4caf50');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(255,255,255,.08)';
+    for (let k = 0; k < 60; k++) { const x = (k * 97.3) % W, y = H * .2 + (k * 53.7) % (H * .8); ctx.beginPath(); ctx.ellipse(x, y, H * .02, H * .006, 0, 0, 7); ctx.fill(); }
+    ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(0, 0, W, H * .12);
+    outlined(`⏱ ${Math.ceil(this.time)}`, W / 2, H * .06, H * .065, this.time <= 10 ? '#e53935' : '#1b5e20');
+    for (let i = 0; i < N; i++) {
+      const z = this.zone(i), p = this.p[i];
+      if (N > 1) {
+        ctx.fillStyle = COLORS[i] + '18'; ctx.fillRect(z.x, H * .12, z.w, H * .88);
+        if (i) { ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fillRect(z.x - 2, H * .12, 4, H * .88); }
+        const fs = H * .05, y = H * .16;
+        roundRect(z.x + z.w / 2 - fs * 2.2, y - fs * .7, fs * 4.4, fs * 1.4, fs * .7); ctx.fillStyle = COLORS[i]; ctx.fill();
+        outlined(`${PNAME[i]}  ${p.score}`, z.x + z.w / 2, y, fs * .85, '#fff', DARKS[i]);
+      } else outlined(`🔨 ${p.score}`, H * .03, H * .06, H * .065, '#e65100', '#fff', 'left');
+      p.holes.forEach((h, k) => this.drawHole(i, k, h));
+      for (const hd of p.hands) {
+        ctx.save(); ctx.translate(hd.x, hd.y); ctx.rotate(-.5 + hd.swing * 1.1);
+        const s = H * (N === 1 ? .1 : .08);
+        ctx.font = emojiFont(s); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('🔨', 0, 0); ctx.restore();
+        if (N > 1) { ctx.strokeStyle = COLORS[i]; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(hd.x, hd.y, H * .05, 0, 7); ctx.stroke(); }
+      }
+      if (G.camReady && G.state === 'play' && !TR[i].seen) outlined('Chưa thấy bé', z.x + z.w / 2, H * .55, H * .04, '#fff', '#000');
+    }
+  },
+  drawHole(i, k, h) {
+    const c = this.hole(i, k), r = c.r, ry = r * .38;
+    ctx.fillStyle = '#4e342e'; ctx.beginPath(); ctx.ellipse(c.x, c.y, r, ry, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#2b1a14'; ctx.beginPath(); ctx.ellipse(c.x, c.y + ry * .15, r * .88, ry * .75, 0, 0, 7); ctx.fill();
+    if (h.pop > 0) {
+      ctx.save(); ctx.beginPath(); ctx.rect(c.x - r * 2, c.y - r * 3, r * 4, r * 3 + ry * .2); ctx.clip();
+      drawMole(c.x, c.y + ry * .3, r, h.pop, h.type, h.st === 'hit', G.t);
+      ctx.restore();
+    }
+    ctx.fillStyle = '#795548'; ctx.beginPath(); ctx.ellipse(c.x, c.y + ry * .25, r * 1.08, ry * .55, 0, 0, Math.PI); ctx.fill();
+    ctx.fillStyle = '#8d6e63'; ctx.beginPath(); ctx.ellipse(c.x, c.y + ry * .3, r * 1.08, ry * .4, 0, 0, Math.PI); ctx.fill();
+  }
+};
+
+boot(GAME);
+</script>
+</body>
+</html>

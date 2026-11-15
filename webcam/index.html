@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vận Động Cùng Webcam</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🤸</text></svg>">
+<link rel="stylesheet" href="lib/core.css">
+<style>
+  #home{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3.2vh;z-index:5;text-align:center;padding:3vw;box-sizing:border-box}
+  #home h1{margin:0;font-size:7vh;color:#e65100;text-shadow:0 .5vh 0 #fff}
+  #home h1 small{display:block;font-size:.4em;color:#6d4c41;font-weight:700;margin-top:.6vh;text-shadow:none}
+  .games{display:flex;gap:3vh;flex-wrap:wrap;justify-content:center;max-width:95vw}
+  .game{display:flex;flex-direction:column;align-items:center;gap:.6vh;width:30vh;padding:3vh 2vh 2.4vh;border-radius:4vh;
+    background:#fff;border:.5vh solid #ffd8b0;box-shadow:0 1vh 0 #ffb27a;text-decoration:none;color:#333;
+    font-weight:800;font-size:3.3vh;transition:transform .12s,box-shadow .12s}
+  .game .em{font-size:12vh;line-height:1}
+  .game .sub{font-size:2vh;font-weight:600;color:#8d6e63}
+  .game:active{transform:translateY(.6vh)}
+  .game.hand-hover{transform:scale(1.08) translateY(-1vh)!important;box-shadow:0 0 0 1vh #ffeb3b,0 1vh 0 #ffb27a!important}
+  .tools{display:flex;gap:2vh;align-items:center;flex-wrap:wrap;justify-content:center}
+  #tapMusic{font-size:2.4vh;color:#b23c00;font-weight:700;background:#fff8e1;border-radius:999px;padding:.8vh 2.4vh;cursor:pointer;border:0;font-family:inherit}
+  .help{font-size:2.3vh;color:#5d4037;font-weight:700;max-width:90vw;line-height:1.5;margin:0;background:rgba(255,255,255,.7);border-radius:2vh;padding:1vh 2.4vh}
+  #status{font-size:2.2vh}
+</style>
+</head>
+<body>
+<div id="home">
+  <h1>🤸 Vận Động Cùng Webcam<small>Đứng trước camera, giơ tay lên chọn trò nào!</small></h1>
+  <div class="games">
+    <a class="game" href="dap-chuot/"><span class="em">🔨</span>Đập Chuột Chũi<span class="sub">vung tay đập · 1–2 người</span></a>
+    <a class="game" href="dap-bong-bay/"><span class="em">🎈</span>Đập Bóng Bay<span class="sub">đập đúng màu · 1–2 người</span></a>
+    <a class="game" href="dung-nham/"><span class="em">🌋</span>Sàn Dung Nham<span class="sub">chạy tránh lửa · 1–2 người</span></a>
+  </div>
+  <div class="tools">
+    <button class="btn" id="musicBtn">🎵 Nhạc: bật</button>
+    <button id="tapMusic" class="hidden">🔊 Chạm vào màn hình để bật nhạc</button>
+  </div>
+  <p class="help" id="help">✋ Giơ tay lên — bàn tay hiện trên màn hình. Đưa tay tới trò muốn chơi rồi <b>nắm tay ✊</b> (hoặc giữ yên 2 giây) để chọn.</p>
+  <div id="status"></div>
+</div>
+
+<script src="lib/core.js"></script>
+<script>
+const musicOn = () => BGM.mode !== 'off';
+function drawMusicBtn() { $('musicBtn').textContent = musicOn() ? '🎵 Nhạc: bật' : '🔇 Nhạc: tắt'; }
+$('musicBtn').onclick = () => {
+  if (musicOn()) { BGM.setMode('off'); BGM.stop(); }
+  else { BGM.setMode('builtin'); BGM.play('home'); }
+  drawMusicBtn();
+};
+$('tapMusic').onclick = () => { audioInit(); BGM.play('home'); };
+drawMusicBtn();
+
+// mây trôi + nắng, camera nhỏ ở góc để bé thấy mình
+const clouds = [...Array(5)].map((_, k) => ({ x: Math.random(), y: .08 + (k % 3) * .1, s: rand(.6, 1.2), v: rand(.006, .014) }));
+bootHome((dt) => {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#8fd3ff'); g.addColorStop(.75, '#fff3e0'); g.addColorStop(.75, '#a5d66f'); g.addColorStop(1, '#7cb342');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#ffe066'; ctx.beginPath(); ctx.arc(W * .08, H * .14, H * .06, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.9)';
+  for (const c of clouds) {
+    c.x += c.v * dt; if (c.x > 1.15) c.x = -.15;
+    const cx = c.x * W, cy = c.y * H, r = H * .045 * c.s;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.arc(cx + r * 1.2, cy - r * .4, r * 1.2, 0, 7); ctx.arc(cx + r * 2.4, cy, r * .9, 0, 7); ctx.fill();
+  }
+  if (G.camReady) {
+    const w = H * .22;
+    drawCam(W - w - H * .02, H - w * .75 - H * .02, w, false, false);
+  }
+  // nhắc chạm màn hình nếu trình duyệt chưa cho phát nhạc
+  $('tapMusic').classList.toggle('hidden', !musicOn() || audioUnlocked());
+  $('help').style.display = G.camReady ? '' : 'none';
+});
+</script>
+</body>
+</html>
