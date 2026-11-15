@@ -133,6 +133,10 @@ const TUNES = {
   dino: { bpm: 116, fast: 150, beat: 'pop', bass: ['G2', 'E2', 'C3', 'D3'],
     notes: 'G4:.5 B4:.5 D5:.5 G5:.5 D5:.5 B4:.5 D5 | E5:.5 G5:.5 E5:.5 B4:.5 E5 R | C5:.5 E5:.5 G5:.5 C6:.5 G5:.5 E5:.5 G5 | D5:.5 F#5:.5 A5:.5 D6:.5 A5 R | ' +
            'B5:.5 A5:.5 G5:.5 D5:.5 G5 B5 | E5:.5 F#5:.5 G5:.5 E5:.5 B4 R | C6:.5 B5:.5 A5:.5 G5:.5 E5:.5 G5:.5 C6 | D6:.5 C6:.5 A5:.5 F#5:.5 G5 R' },
+  // Chém hoa quả: nhảy nhót, rộn ràng
+  fruit: { bpm: 124, fast: 146, beat: 'pop', bass: ['D3', 'B2', 'G2', 'A2'],
+    notes: 'D5:.5 F#5:.5 A5 F#5:.5 D5:.5 A5 | B4:.5 D5:.5 G5 D5:.5 B4:.5 G5 | G5:.5 A5:.5 B5:.5 G5:.5 E5 D5 | C#5:.5 E5:.5 A5:.5 E5:.5 A4 R | ' +
+           'F#5:.5 A5:.5 D6:.5 A5:.5 F#5 D5 | G5:.5 B5:.5 D6:.5 B5:.5 G5 R | E5:.5 F#5:.5 G5:.5 B5:.5 A5:.5 G5:.5 F#5:.5 E5:.5 | D5:.5 E5:.5 F#5:.5 A5:.5 D5 R' },
 };
 for (const k in TUNES) { TUNES[k].seq = parseTune(TUNES[k].notes); TUNES[k].bassF = TUNES[k].bass.map(nf); }
 

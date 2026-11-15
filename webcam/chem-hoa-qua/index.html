@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chém Hoa Quả</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍉</text></svg>">
+<link rel="stylesheet" href="../lib/core.css">
+</head>
+<body>
+<script src="../lib/core.js"></script>
+<script>
+// ================= CHÉM HOA QUẢ =================
+// Trái cây tung lên từ dưới; bé VUNG TAY THẬT NHANH qua quả để chém đôi.
+// Tay chỉ chém khi đang vung nhanh (đưa tay chậm qua thì không tính), nên bé
+// phải "chém" thật chứ không chỉ để tay chờ sẵn. Bom 💣 thì tránh (−2).
+// Một lần vung chém được nhiều quả thì có combo.
+
+const FRUITS = [
+  { e: '🍉', juice: '#ff5252' }, { e: '🍊', juice: '#ffa726' }, { e: '🍎', juice: '#ff6e6e' },
+  { e: '🍌', juice: '#ffee58' }, { e: '🍍', juice: '#ffd54f' }, { e: '🥝', juice: '#9ccc65' },
+  { e: '🍓', juice: '#ff4081' }, { e: '🍑', juice: '#ffab91' }, { e: '🍋', juice: '#fff176' },
+  { e: '🍇', juice: '#ab47bc' }, { e: '🥭', juice: '#ffb300' },
+];
+
+const GAME = {
+  title: 'Chém Hoa Quả',
+  desc: 'Trái cây bay lên — <b>vung tay thật nhanh</b> qua quả để chém đôi! 🍉🔪<br>Chém nhiều quả một lần vung được <b>combo</b> · Tránh 💣 bom (−2). Hết 60 giây, ai nhiều điểm nhất thắng!',
+  keys: 'Không có camera: kéo chuột thật nhanh qua quả để chém',
+  tune: 'fruit',
+  camOff: true,
+  DUR: 60,
+  menuInit() {
+    // chuột/ngón tay cũng chém được (thử khi không có camera)
+    cv.addEventListener('pointermove', e => { this.ptr = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+  },
+  reset(N) {
+    this.N = N; this.time = this.DUR; this.fast = false;
+    this.items = []; this.halves = []; this.splats = [];
+    this.spawnT = .6; this.score = Array(N).fill(0);
+    this.blades = {};          // key -> { i, pts:[{x,y,t}], last, combo, comboT }
+    BGM.setFast(false);
+  },
+  // tay trên màn hình: khớp với hình camera nếu đang dùng nền camera
+  mapCam(p) {
+    if (useCamBG()) return camToScreen(p);
+    return [W * (.5 + ((1 - p.x) - .5) * 1.15), H * (.5 + (p.y - .5) * 1.1)];
+  },
+  zoneOf(x) { return this.N === 1 ? 0 : (x < W / 2 ? 0 : 1); },
+  spawn() {
+    const prog = 1 - this.time / this.DUR;
+    const zones = this.N === 1 ? [[W * .08, W * .92]] : [[W * .06, W * .44], [W * .56, W * .94]];
+    zones.forEach(([x0, x1]) => {
+      const n = 1 + (Math.random() < .35 + prog * .4 ? 1 : 0) + (Math.random() < prog * .3 ? 1 : 0);
+      for (let k = 0; k < n; k++) {
+        const bomb = this.time < this.DUR - 4 && Math.random() < .1 + prog * .06;
+        const r = H * rand(.055, .075), x = rand(x0, x1);
+        const peak = H * rand(.12, .42), g = H * 1.1;
+        const vy = -Math.sqrt(2 * g * (H + r - peak));
+        const mid = (x0 + x1) / 2, vx = (mid - x) * rand(.3, .7) + rand(-1, 1) * W * .03;
+        this.items.push({ x, y: H + r, vx, vy, g, r, rot: rand(0, 6), vr: rand(-3, 3), bomb, f: FRUITS[Math.random() * FRUITS.length | 0] });
+      }
+    });
+    if (!this.items.length || Math.random() < .5) tone(300, .12, 'sine', .08, 520);   // tiếng "vút" khi tung
+  },
+  update(dt) {
+    this.time -= dt;
+    if (this.time <= 0) { this.time = 0; return this.finish(); }
+    if (!this.fast && this.time <= 10) { this.fast = true; BGM.setFast(true); floatText(W / 2, H * .3, '⚡ Nhanh lên!', '#e53935', .08); }
+    const prog = 1 - this.time / this.DUR;
+    this.spawnT -= dt;
+    if (this.spawnT <= 0) { this.spawn(); this.spawnT = rand(1.0, 1.5) - prog * .4; }
+    for (const it of this.items) { it.x += it.vx * dt; it.y += it.vy * dt; it.vy += it.g * dt; it.rot += it.vr * dt; }
+    this.items = this.items.filter(it => !it.dead && !(it.vy > 0 && it.y > H + it.r * 2));
+    for (const h of this.halves) { h.x += h.vx * dt; h.y += h.vy * dt; h.vy += H * 1.3 * dt; h.rot += h.vr * dt; h.life -= dt; }
+    this.halves = this.halves.filter(h => h.life > 0 && h.y < H + h.r * 2);
+    for (const s of this.splats) s.life -= dt;
+    this.splats = this.splats.filter(s => s.life > 0);
+    this.updateBlades(dt);
+  },
+  // ---------- lưỡi dao = bàn tay ----------
+  handPoints() {
+    const out = [];
+    if (G.camReady) {
+      for (let i = 0; i < this.N; i++) {
+        const t = TR[i]; if (!t.seen || !t.lm) continue;
+        for (const [w, f, side] of [[15, 19, 'L'], [16, 20, 'R']]) {
+          const a = t.lm[w], c = t.lm[f];
+          if ((a.visibility ?? 1) < .3) continue;
+          const [x, y] = this.mapCam({ x: (a.x + c.x) / 2, y: (a.y + c.y) / 2 });
+          out.push({ key: i + side, i, x, y });
+        }
+      }
+    }
+    if (this.ptr && performance.now() - this.ptr.t < 300) out.push({ key: 'ptr', i: this.zoneOf(this.ptr.x), x: this.ptr.x, y: this.ptr.y });
+    return out;
+  },
+  updateBlades(dt) {
+    const now = performance.now() / 1000, seen = new Set();
+    for (const h of this.handPoints()) {
+      seen.add(h.key);
+      const b = this.blades[h.key] || (this.blades[h.key] = { i: h.i, pts: [], combo: 0, comboT: 0 });
+      b.i = h.key === 'ptr' ? h.i : h.i;
+      const last = b.pts[b.pts.length - 1];
+      if (last && last.x === h.x && last.y === h.y) continue;          // chưa có khung hình mới
+      b.pts.push({ x: h.x, y: h.y, t: now });
+      if (last) {
+        const dtt = Math.max(.012, now - last.t), sp = Math.hypot(h.x - last.x, h.y - last.y) / dtt;
+        b.sharp = sp > H * 1.0;                                        // vung đủ nhanh mới là "chém"
+        if (b.sharp) this.cut(b, last, h, now);
+      }
+    }
+    for (const k in this.blades) {
+      const b = this.blades[k];
+      b.pts = b.pts.filter(p => now - p.t < .22);
+      if (!seen.has(k) && !b.pts.length) delete this.blades[k];
+      if (b.combo && now - b.comboT > .35) {
+        if (b.combo >= 3) {
+          const bonus = b.combo - 2; this.score[b.i] += bonus; SFX.bonus();
+          floatText(b.lastX, b.lastY - H * .08, `Combo ×${b.combo}! +${bonus}`, '#ff6f00', .065);
+        }
+        b.combo = 0;
+      }
+    }
+  },
+  cut(b, a, c, now) {
+    for (const it of this.items) {
+      if (it.dead) continue;
+      if (segDist(it.x, it.y, a.x, a.y, c.x, c.y) > it.r * 1.05) continue;
+      it.dead = true;
+      const ang = Math.atan2(c.y - a.y, c.x - a.x);
+      b.lastX = it.x; b.lastY = it.y;
+      if (it.bomb) {
+        this.score[b.i] = Math.max(0, this.score[b.i] - 2); SFX.bad();
+        burst(it.x, it.y, 30, ['#424242', '#ff7043', '#ffca28', '#9e9e9e'], 1.3);
+        floatText(it.x, it.y - it.r, '−2 💥', '#424242', .065);
+        continue;
+      }
+      this.score[b.i] += 1;
+      b.combo++; b.comboT = now;
+      SFX.pop(); if (AC) noiseAt(.12, AC.currentTime, .18, 2500, 1.2);    // tiếng "xoẹt"
+      // hai nửa quả bay tách ra theo hướng vuông góc với nhát chém
+      const nx = -Math.sin(ang), ny = Math.cos(ang), sp = H * .35;
+      for (const s of [-1, 1]) {
+        this.halves.push({ x: it.x, y: it.y, vx: it.vx * .5 + nx * sp * s, vy: Math.min(it.vy, 0) * .3 + ny * sp * s - H * .2,
+          rot: it.rot, vr: s * rand(2, 5), r: it.r, e: it.f.e, side: s, cutAng: ang, life: 1.6 });
+      }
+      this.splats.push({ x: it.x, y: it.y, r: it.r * 1.3, c: it.f.juice, life: 1.2, max: 1.2, seed: Math.random() * 6 });
+      burst(it.x, it.y, 12, [it.f.juice, '#fff', it.f.juice], .7);
+      floatText(it.x, it.y - it.r * 1.2, '+1', this.N > 1 ? DARKS[b.i] : '#e65100', .055);
+    }
+  },
+  finish() {
+    if (this.N === 1) {
+      const sc = this.score[0], best = store.get('kg_fruit_best', 0);
+      if (sc > best) store.set('kg_fruit_best', sc);
+      return endGame('🎉 Hết giờ!', [{ i: 0, text: `Chém được ${sc} điểm 🍉` }], sc > best ? '🏆 Kỷ lục mới!' : `Kỷ lục: ${best} điểm`);
+    }
+    endVersus(this.score, s => `${s} điểm`);
+  },
+
+  // ---------- vẽ ----------
+  draw() {
+    const N = this.N;
+    if (useCamBG()) drawCamBG(.12);
+    else {
+      // thớt gỗ
+      const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#8d5a35'); g.addColorStop(1, '#5d3a1f');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = 3;
+      for (let y = H * .14; y < H; y += H * .14) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+      ctx.strokeStyle = 'rgba(255,255,255,.05)'; ctx.lineWidth = 2;
+      for (let k = 0; k < 40; k++) { const y = (k * 71.3) % H, x = (k * 131.7) % W; ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + W * .05, y + 6, x + W * .12, y); ctx.stroke(); }
+    }
+    if (N > 1) {
+      ctx.fillStyle = COLORS[0] + '14'; ctx.fillRect(0, 0, W / 2, H);
+      ctx.fillStyle = COLORS[1] + '14'; ctx.fillRect(W / 2, 0, W / 2, H);
+      ctx.setLineDash([12, 10]); ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H); ctx.stroke(); ctx.setLineDash([]);
+    }
+    // vết nước quả
+    for (const s of this.splats) {
+      ctx.globalAlpha = Math.min(1, s.life / s.max) * .55; ctx.fillStyle = s.c;
+      ctx.beginPath();
+      for (let k = 0; k < 9; k++) { const a = k / 9 * 6.28 + s.seed, rr = s.r * (k % 2 ? .55 : 1); ctx.lineTo(s.x + Math.cos(a) * rr, s.y + Math.sin(a) * rr); }
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // quả + bom
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (const it of this.items) {
+      ctx.save(); ctx.translate(it.x, it.y); ctx.rotate(it.rot);
+      ctx.font = emojiFont(it.r * 2);
+      ctx.fillText(it.bomb ? '💣' : it.f.e, 0, 0);
+      ctx.restore();
+      if (it.bomb && Math.sin(G.t * 30) > 0) { ctx.fillStyle = '#ffeb3b'; ctx.beginPath(); ctx.arc(it.x + it.r * .5, it.y - it.r * .7, it.r * .15, 0, 7); ctx.fill(); }
+    }
+    // nửa quả: cắt emoji làm đôi theo đường chém
+    for (const h of this.halves) {
+      ctx.save(); ctx.globalAlpha = Math.min(1, h.life * 1.5);
+      ctx.translate(h.x, h.y); ctx.rotate(h.rot);
+      ctx.save(); ctx.rotate(h.cutAng - h.rot);
+      ctx.beginPath(); ctx.rect(-h.r * 2, h.side > 0 ? 0 : -h.r * 2, h.r * 4, h.r * 2); ctx.restore();
+      ctx.clip();
+      ctx.font = emojiFont(h.r * 2); ctx.fillText(h.e, 0, 0);
+      ctx.restore();
+    }
+    // vệt dao
+    for (const k in this.blades) {
+      const b = this.blades[k], pts = b.pts;
+      const col = N > 1 ? COLORS[b.i] : '#ffffff';
+      if (pts.length > 1) {
+        for (let j = 1; j < pts.length; j++) {
+          const w = H * .022 * (j / pts.length);
+          ctx.strokeStyle = col; ctx.globalAlpha = .35 + .65 * j / pts.length; ctx.lineWidth = w + 4; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(pts[j - 1].x, pts[j - 1].y); ctx.lineTo(pts[j].x, pts[j].y); ctx.stroke();
+          ctx.strokeStyle = '#fff'; ctx.lineWidth = w;
+          ctx.beginPath(); ctx.moveTo(pts[j - 1].x, pts[j - 1].y); ctx.lineTo(pts[j].x, pts[j].y); ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      }
+      const p = pts[pts.length - 1];
+      if (p) {
+        ctx.fillStyle = (N > 1 ? COLORS[b.i] : '#ff8a3d') + (b.sharp ? 'ee' : '88'); ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(p.x, p.y, H * .028, 0, 7); ctx.fill(); ctx.stroke();
+      }
+    }
+    // điểm + giờ
+    outlined(`⏱ ${Math.ceil(this.time)}`, W / 2, H * .055, H * .06, this.time <= 10 ? '#e53935' : '#fff', '#5d3a1f');
+    if (N === 1) outlined(`🍉 ${this.score[0]}`, H * .03, H * .055, H * .07, '#ff7043', '#fff', 'left');
+    else for (let i = 0; i < N; i++) {
+      const zx = (i + .5) * W / N, y = H * .14, fs = H * .055;
+      roundRect(zx - fs * 2.2, y - fs * .7, fs * 4.4, fs * 1.4, fs * .7); ctx.fillStyle = COLORS[i]; ctx.fill();
+      outlined(`${PNAME[i]}  ${this.score[i]}`, zx, y, fs * .85, '#fff', DARKS[i]);
+    }
+    if (G.camReady && G.state === 'play') for (let i = 0; i < N; i++) if (!TR[i].seen) outlined('Chưa thấy bé', (i + .5) * W / N, H * .5, H * .04, '#fff', '#000');
+  }
+};
+
+// khoảng cách từ điểm (px,py) tới đoạn thẳng a-b
+function segDist(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay, L = dx * dx + dy * dy;
+  const t = L ? clamp(((px - ax) * dx + (py - ay) * dy) / L, 0, 1) : 0;
+  return Math.hypot(px - (ax + dx * t), py - (ay + dy * t));
+}
+
+boot(GAME);
+</script>
+</body>
+</html>
