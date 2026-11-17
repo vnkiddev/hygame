@@ -11,9 +11,9 @@
   #home h1{margin:0;font-size:7vh;color:#e65100;text-shadow:0 .5vh 0 #fff}
   #home h1 small{display:block;font-size:.4em;color:#6d4c41;font-weight:700;margin-top:.6vh;text-shadow:none}
   .games{display:flex;gap:3vh;flex-wrap:wrap;justify-content:center;max-width:95vw}
-  .game{display:flex;flex-direction:column;align-items:center;gap:.6vh;width:24vh;padding:3vh 2vh 2.4vh;border-radius:4vh;
+  .game{display:flex;flex-direction:column;align-items:center;gap:.6vh;width:22vh;padding:3vh 2vh 2.4vh;border-radius:4vh;
     background:#fff;border:.5vh solid #ffd8b0;box-shadow:0 1vh 0 #ffb27a;text-decoration:none;color:#333;
-    font-weight:800;font-size:3.3vh;transition:transform .12s,box-shadow .12s}
+    font-weight:800;font-size:2.8vh;transition:transform .12s,box-shadow .12s}
   .game .em{font-size:10vh;line-height:1}
   .game .sub{font-size:2vh;font-weight:600;color:#8d6e63}
   .game:active{transform:translateY(.6vh)}
@@ -22,6 +22,12 @@
   #tapMusic{font-size:2.4vh;color:#b23c00;font-weight:700;background:#fff8e1;border-radius:999px;padding:.8vh 2.4vh;cursor:pointer;border:0;font-family:inherit}
   .help{font-size:2.3vh;color:#5d4037;font-weight:700;max-width:90vw;line-height:1.5;margin:0;background:rgba(255,255,255,.7);border-radius:2vh;padding:1vh 2.4vh}
   #status{font-size:2.2vh}
+  /* QR nhóm Zalo cho bố mẹ — góc dưới phải */
+  #qr{position:fixed;right:1.6vh;bottom:1.6vh;z-index:6;width:21vh;background:#fff;border-radius:2vh;
+    padding:1.2vh 1.2vh 1vh;box-shadow:0 .8vh 2.4vh rgba(0,0,0,.18);text-align:center;border:.4vh solid #ffd8b0}
+  #qr img{display:block;width:100%;height:auto}
+  #qr p{margin:.6vh 0 0;font-size:1.6vh;line-height:1.35;color:#5d4037;font-weight:700}
+  #qr b{color:#e65100}
 </style>
 </head>
 <body>
@@ -34,6 +40,7 @@
     <a class="game" href="dua-khung-long/"><span class="em">🦖</span>Đua Khủng Long<span class="sub">chạy tại chỗ · 1–2 người</span></a>
     <a class="game" href="chem-hoa-qua/"><span class="em">🍉</span>Chém Hoa Quả<span class="sub">vung tay chém · 1–2 người</span></a>
     <a class="game" href="tu-the/"><span class="em">🙆</span>Làm Theo Tư Thế<span class="sub">tạo dáng như hình · 1–2 người</span></a>
+    <a class="game" href="khung-long-nhay/"><span class="em">🌵</span>Khủng Long Nhảy<span class="sub">bật nhảy ăn quả · 1–2 người</span></a>
   </div>
   <div class="tools">
     <button class="btn" id="musicBtn">🎵 Nhạc: bật</button>
@@ -42,6 +49,11 @@
   <p class="help" id="help">✋ Giơ tay lên — bàn tay hiện trên màn hình. Đưa tay tới trò muốn chơi rồi <b>nắm tay ✊</b> (hoặc giữ yên 2 giây) để chọn.</p>
   <div id="status"></div>
 </div>
+
+<aside id="qr">
+  <img src="img/zalo-qr.png" alt="Mã QR nhóm Zalo 3ChoiVoiCon">
+  <p>👨‍👩‍👧 <b>Ba mẹ ơi!</b> Quét mã vào nhóm Zalo để góp ý tưởng trò chơi mới cho con nhé 💡</p>
+</aside>
 
 <script src="lib/core.js"></script>
 <script>
@@ -70,7 +82,7 @@ bootHome((dt) => {
   }
   if (G.camReady) {
     const w = H * .22;
-    drawCam(W - w - H * .02, H - w / camAspect() - H * .02, w, false, false);
+    drawCam(H * .02, H - w / camAspect() - H * .02, w, false, false);   // góc dưới trái (góc phải để QR)
   }
   // nhắc chạm màn hình nếu trình duyệt chưa cho phát nhạc
   $('tapMusic').classList.toggle('hidden', !musicOn() || audioUnlocked());
